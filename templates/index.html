@@ -1,0 +1,1503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DiNKR Pickleball Americano Tournament</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
+            background: #325682; 
+            min-height: 100vh;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            touch-action: manipulation;
+        }
+        .btn { 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            transition: all 0.2s; 
+            touch-action: manipulation;
+        }
+        .btn:hover { transform: translateY(-1px); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .input { 
+            border: 2px solid #64748b; 
+            border-radius: 4px; 
+            padding: 12px; 
+            font-size: 16px; 
+            outline: none;
+            touch-action: manipulation;
+            -webkit-appearance: none;
+            -moz-appearance: textfield;
+        }
+        .input:focus { border-color: #deff01; }
+        .input::-webkit-outer-spin-button,
+        .input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .card { 
+            background: rgba(255, 255, 255, 0.1); 
+            backdrop-filter: blur(10px); 
+            border-radius: 12px; 
+            padding: 24px; 
+            margin-bottom: 24px; 
+        }
+        .error-message {
+            background: #fed7d7;
+            color: #9b2c2c;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+        }
+        .success-message {
+            background: #c6f6d5;
+            color: #276749;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+        }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #deff01;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* DiNKR Logo Styling */
+        .dinkr-logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .dinkr-tagline {
+            font-size: 12px;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        /* Ensure smooth scrolling on mobile */
+        html { scroll-behavior: smooth; }
+        
+        /* Prevent zoom on double-tap for inputs */
+        input[type="tel"], input[type="text"], select {
+            font-size: 16px;
+            transform: translateZ(0);
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script>
+        const { useState, useCallback, useEffect, createElement: h } = React;
+        
+        // DiNKR Logo Component
+        const DiNKRLogo = ({ size = 'normal' }) => {
+            const logoSize = size === 'large' ? 80 : 60;
+            const textSize = size === 'large' ? '36px' : '28px';
+            
+            return h('div', { 
+                style: { textAlign: 'center', marginBottom: '24px' } 
+            }, [
+                h('div', { 
+                    key: 'logo',
+                    className: 'dinkr-logo' 
+                }, [
+                    h('div', { 
+                        key: 'icon',
+                        style: {
+                            width: logoSize + 'px',
+                            height: logoSize + 'px',
+                            background: '#deff01',
+                            borderRadius: '50%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: Math.round(logoSize * 0.5) + 'px'
+                        }
+                    }, '🏓'),
+                    h('div', { key: 'text' }, [
+                        h('div', { 
+                            key: 'title',
+                            style: {
+                                fontSize: textSize,
+                                fontWeight: 'bold',
+                                color: '#deff01',
+                                letterSpacing: '2px'
+                            }
+                        }, 'DiNKR'),
+                        h('div', { 
+                            key: 'tagline',
+                            className: 'dinkr-tagline' 
+                        }, 'MEET YOUR MATCH')
+                    ])
+                ])
+            ]);
+        };
+        
+        const Trophy = ({ size = 24 }) => {
+            return h('div', {
+                style: {
+                    width: size + 'px',
+                    height: size + 'px',
+                    backgroundColor: '#deff01',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: Math.round(size * 0.6) + 'px'
+                }
+            }, '🏆');
+        };
+        
+        const ChevronLeft = ({ size = 24 }) => {
+            return h('div', {
+                style: {
+                    width: size + 'px',
+                    height: size + 'px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: Math.round(size * 0.8) + 'px',
+                    color: 'white'
+                }
+            }, '←');
+        };
+
+        const CheckCircle = ({ size = 24 }) => {
+            return h('div', {
+                style: {
+                    width: size + 'px',
+                    height: size + 'px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: Math.round(size * 0.8) + 'px',
+                    color: 'white'
+                }
+            }, '✓');
+        };
+
+        // Score Validation Dialog Component
+        const ScoreValidationDialog = ({ isOpen, onClose, teamAScore, teamBScore, onConfirm }) => {
+            if (!isOpen) return null;
+
+            return h('div', { 
+                style: { 
+                    position: 'fixed', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    zIndex: 9999,
+                    padding: '20px'
+                } 
+            }, [
+                h('div', { 
+                    style: { 
+                        backgroundColor: 'white', 
+                        borderRadius: '16px', 
+                        padding: '32px', 
+                        maxWidth: '400px', 
+                        width: '100%',
+                        color: '#1a202c',
+                        textAlign: 'center'
+                    } 
+                }, [
+                    h('h2', { 
+                        key: 'title',
+                        style: { fontSize: '24px', fontWeight: 'bold', marginBottom: '16px', color: '#dc2626' } 
+                    }, '⚠️ Score Confirmation'),
+                    
+                    h('p', { 
+                        key: 'message',
+                        style: { marginBottom: '20px', fontSize: '16px', lineHeight: '1.5' } 
+                    }, `It looks like neither team scored 11 points (${teamAScore} - ${teamBScore}). Please confirm this score or go back to edit it.`),
+                    
+                    h('div', { 
+                        key: 'score-display',
+                        style: {
+                            backgroundColor: '#f8f9fa',
+                            padding: '16px',
+                            borderRadius: '8px',
+                            marginBottom: '24px',
+                            fontSize: '24px',
+                            fontWeight: 'bold',
+                            color: '#325682'
+                        }
+                    }, `${teamAScore} - ${teamBScore}`),
+                    
+                    h('div', { 
+                        key: 'buttons',
+                        style: { display: 'flex', gap: '16px', justifyContent: 'center' }
+                    }, [
+                        h('button', {
+                            key: 'edit',
+                            onClick: onClose,
+                            style: {
+                                backgroundColor: '#64748b',
+                                color: 'white',
+                                border: 'none',
+                                padding: '16px 24px',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }
+                        }, 'Edit Score'),
+                        h('button', {
+                            key: 'confirm',
+                            onClick: onConfirm,
+                            style: {
+                                backgroundColor: '#deff01',
+                                color: '#1a202c',
+                                border: 'none',
+                                padding: '16px 24px',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }
+                        }, 'Confirm Score')
+                    ])
+                ])
+            ]);
+        };
+
+        const SkipPlayerDialog = ({ isOpen, onClose, tournament, currentRound, onSkipPlayersSelected, maxSkips }) => {
+            const [selectedPlayers, setSelectedPlayers] = useState(new Set());
+
+            useEffect(() => {
+                if (isOpen) {
+                    setSelectedPlayers(new Set());
+                }
+            }, [isOpen]);
+
+            if (!isOpen || !tournament) return null;
+
+            // Get all players who could potentially play (not currently sitting out)
+            const allPlayers = tournament.players;
+            
+            // For the skip dialog, show all players since anyone can choose to skip
+            const availablePlayers = allPlayers;
+
+            const togglePlayer = (playerName) => {
+                setSelectedPlayers(prev => {
+                    const newSet = new Set(prev);
+                    if (newSet.has(playerName)) {
+                        newSet.delete(playerName);
+                    } else if (newSet.size < maxSkips) {
+                        newSet.add(playerName);
+                    }
+                    return newSet;
+                });
+            };
+
+            const handleNoSkips = () => {
+                setSelectedPlayers(new Set());
+                onSkipPlayersSelected([]);
+                onClose();
+            };
+
+            const handleConfirmSkips = () => {
+                onSkipPlayersSelected(Array.from(selectedPlayers));
+                onClose();
+            };
+
+            return h('div', { 
+                style: { 
+                    position: 'fixed', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    zIndex: 9999,
+                    padding: '20px'
+                } 
+            }, [
+                h('div', { 
+                    style: { 
+                        backgroundColor: 'white', 
+                        borderRadius: '16px', 
+                        padding: '32px', 
+                        maxWidth: '500px', 
+                        width: '100%',
+                        color: '#1a202c',
+                        textAlign: 'center'
+                    } 
+                }, [
+                    h('h2', { 
+                        key: 'title',
+                        style: { fontSize: '24px', fontWeight: 'bold', marginBottom: '16px', color: '#325682' } 
+                    }, 'Next Round Setup'),
+                    
+                    h('p', { 
+                        key: 'question',
+                        style: { marginBottom: '24px', fontSize: '18px' } 
+                    }, 'Do any players need to skip the next round?'),
+                    
+                    h('div', { 
+                        key: 'instructions',
+                        style: { marginBottom: '20px', fontSize: '14px', color: '#64748b' }
+                    }, `Select up to ${maxSkips} player${maxSkips !== 1 ? 's' : ''} who need to skip:`),
+                    
+                    h('div', { 
+                        key: 'players',
+                        style: {
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                            gap: '12px',
+                            margin: '20px 0'
+                        }
+                    }, availablePlayers.map(player => {
+                        const playerName = player.name || player.firstName;
+                        const isSelected = selectedPlayers.has(playerName);
+                        const canSelect = selectedPlayers.size < maxSkips || isSelected;
+                        
+                        return h('button', {
+                            key: playerName,
+                            onClick: () => togglePlayer(playerName),
+                            disabled: !canSelect,
+                            style: {
+                                padding: '12px 8px',
+                                border: `2px solid ${isSelected ? '#325682' : '#e2e8f0'}`,
+                                borderRadius: '8px',
+                                backgroundColor: isSelected ? '#deff01' : (canSelect ? 'white' : '#f8f9fa'),
+                                cursor: canSelect ? 'pointer' : 'not-allowed',
+                                fontSize: '14px',
+                                fontWeight: '500',
+                                color: isSelected ? '#1a202c' : (canSelect ? '#1a202c' : '#9ca3af'),
+                                transition: 'all 0.2s'
+                            }
+                        }, playerName);
+                    })),
+                    
+                    selectedPlayers.size > 0 ? h('p', {
+                        key: 'selected-count',
+                        style: { fontSize: '14px', color: '#325682', marginBottom: '20px' }
+                    }, `${selectedPlayers.size} player${selectedPlayers.size !== 1 ? 's' : ''} selected to skip`) : null,
+                    
+                    h('div', { 
+                        key: 'buttons',
+                        style: { display: 'flex', gap: '16px', justifyContent: 'center' }
+                    }, [
+                        h('button', {
+                            key: 'no-skips',
+                            onClick: handleNoSkips,
+                            style: {
+                                backgroundColor: '#64748b',
+                                color: 'white',
+                                border: 'none',
+                                padding: '16px 24px',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }
+                        }, 'No Skips'),
+                        h('button', {
+                            key: 'confirm',
+                            onClick: handleConfirmSkips,
+                            disabled: selectedPlayers.size === 0,
+                            style: {
+                                backgroundColor: selectedPlayers.size > 0 ? '#deff01' : '#9ca3af',
+                                color: '#1a202c',
+                                border: 'none',
+                                padding: '16px 24px',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: selectedPlayers.size > 0 ? 'pointer' : 'not-allowed'
+                            }
+                        }, 'Confirm Skips')
+                    ])
+                ])
+            ]);
+        };
+
+        // Player Management Dialog
+        const PlayerDialog = ({ isOpen, onClose, players, setPlayers, totalPlayers }) => {
+            const [editingPlayers, setEditingPlayers] = useState([]);
+
+            useEffect(() => {
+                if (isOpen) {
+                    // Initialize with current players or create new ones
+                    const initialPlayers = [];
+                    for (let i = 0; i < totalPlayers; i++) {
+                        if (players[i]) {
+                            initialPlayers.push(players[i]);
+                        } else {
+                            initialPlayers.push({
+                                firstName: '',
+                                lastName: '',
+                                gender: 'M',
+                                rating: 3.5
+                            });
+                        }
+                    }
+                    setEditingPlayers(initialPlayers);
+                }
+            }, [isOpen, players, totalPlayers]);
+
+            const updatePlayer = (index, field, value) => {
+                setEditingPlayers(prev => {
+                    const updated = [...prev];
+                    updated[index] = { ...updated[index], [field]: value };
+                    return updated;
+                });
+            };
+
+            const handleSave = () => {
+                // Validate all players have first names
+                const allValid = editingPlayers.every(p => p.firstName.trim());
+                if (!allValid) {
+                    alert('Please fill in all first names');
+                    return;
+                }
+                
+                setPlayers(editingPlayers);
+                onClose();
+            };
+
+            const randomizeRatings = () => {
+                setEditingPlayers(prev => prev.map(p => ({
+                    ...p,
+                    rating: Math.round((Math.random() * 1.5 + 3.0) * 10) / 10
+                })));
+            };
+
+            if (!isOpen) return null;
+
+            return h('div', { 
+                style: { 
+                    position: 'fixed', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    zIndex: 9999,
+                    padding: '20px'
+                } 
+            }, [
+                h('div', { 
+                    style: { 
+                        backgroundColor: 'white', 
+                        borderRadius: '12px', 
+                        padding: '24px', 
+                        maxWidth: '600px', 
+                        width: '100%',
+                        maxHeight: '80vh',
+                        overflowY: 'auto',
+                        color: '#1a202c'
+                    } 
+                }, [
+                    h('div', { 
+                        key: 'header',
+                        style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }
+                    }, [
+                        h('h2', { style: { fontSize: '24px', fontWeight: 'bold', color: '#325682' } }, 'Configure Players'),
+                        h('button', {
+                            onClick: randomizeRatings,
+                            style: {
+                                backgroundColor: '#deff01',
+                                color: '#1a202c',
+                                border: 'none',
+                                padding: '8px 16px',
+                                borderRadius: '6px',
+                                fontSize: '14px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }
+                        }, 'Randomize Ratings')
+                    ]),
+                    
+                    h('div', { 
+                        key: 'players',
+                        style: { marginBottom: '24px' }
+                    }, editingPlayers.map((player, index) => 
+                        h('div', {
+                            key: index,
+                            style: {
+                                display: 'grid',
+                                gridTemplateColumns: '1fr 1fr 80px 80px',
+                                gap: '12px',
+                                marginBottom: '12px',
+                                padding: '12px',
+                                backgroundColor: '#f8f9fa',
+                                borderRadius: '8px'
+                            }
+                        }, [
+                            h('input', {
+                                key: 'firstName',
+                                type: 'text',
+                                placeholder: 'First Name',
+                                value: player.firstName,
+                                onChange: (e) => updatePlayer(index, 'firstName', e.target.value),
+                                style: {
+                                    padding: '8px 12px',
+                                    border: '2px solid #e2e8f0',
+                                    borderRadius: '6px',
+                                    fontSize: '14px'
+                                }
+                            }),
+                            h('input', {
+                                key: 'lastName',
+                                type: 'text',
+                                placeholder: 'Last Name',
+                                value: player.lastName,
+                                onChange: (e) => updatePlayer(index, 'lastName', e.target.value),
+                                style: {
+                                    padding: '8px 12px',
+                                    border: '2px solid #e2e8f0',
+                                    borderRadius: '6px',
+                                    fontSize: '14px'
+                                }
+                            }),
+                            h('select', {
+                                key: 'gender',
+                                value: player.gender,
+                                onChange: (e) => updatePlayer(index, 'gender', e.target.value),
+                                style: {
+                                    padding: '8px 12px',
+                                    border: '2px solid #e2e8f0',
+                                    borderRadius: '6px',
+                                    fontSize: '14px'
+                                }
+                            }, [
+                                h('option', { value: 'M' }, 'Male'),
+                                h('option', { value: 'F' }, 'Female')
+                            ]),
+                            h('input', {
+                                key: 'rating',
+                                type: 'number',
+                                min: 2.0,
+                                max: 5.0,
+                                step: 0.1,
+                                value: player.rating,
+                                onChange: (e) => updatePlayer(index, 'rating', parseFloat(e.target.value) || 3.5),
+                                style: {
+                                    padding: '8px 12px',
+                                    border: '2px solid #e2e8f0',
+                                    borderRadius: '6px',
+                                    fontSize: '14px'
+                                }
+                            })
+                        ])
+                    )),
+                    
+                    h('div', { 
+                        key: 'buttons',
+                        style: { display: 'flex', gap: '12px', justifyContent: 'flex-end' }
+                    }, [
+                        h('button', {
+                            key: 'cancel',
+                            onClick: onClose,
+                            style: {
+                                backgroundColor: '#64748b',
+                                color: 'white',
+                                border: 'none',
+                                padding: '12px 24px',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }
+                        }, 'Cancel'),
+                        h('button', {
+                            key: 'save',
+                            onClick: handleSave,
+                            style: {
+                                backgroundColor: '#deff01',
+                                color: '#1a202c',
+                                border: 'none',
+                                padding: '12px 24px',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }
+                        }, 'Save Players')
+                    ])
+                ])
+            ]);
+        };
+
+        // Beautiful Court Component with Score Validation
+        const Court = ({ match, matchIndex, roundIndex, courtNumber, scores, updateScore, onScoreValidation }) => {
+            const [teamA, teamB] = match;
+            const matchScores = scores[roundIndex]?.[matchIndex] || { teamA: '', teamB: '' };
+
+            const handleScoreChange = (team, value) => {
+                // Always update the display immediately
+                updateScore(roundIndex, matchIndex, team, value);
+                
+                // Check if both scores are entered and validate
+                const otherTeam = team === 'teamA' ? 'teamB' : 'teamA';
+                const otherScore = team === 'teamA' ? matchScores.teamB : matchScores.teamA;
+                
+                // Update the other score to get current state
+                const currentTeamAScore = team === 'teamA' ? value : otherScore;
+                const currentTeamBScore = team === 'teamB' ? value : otherScore;
+                
+                if (currentTeamAScore && currentTeamBScore) {
+                    const scoreA = parseInt(currentTeamAScore) || 0;
+                    const scoreB = parseInt(currentTeamBScore) || 0;
+                    
+                    // Validate scores (neither team reached 11)
+                    if (scoreA < 11 && scoreB < 11 && (scoreA > 0 || scoreB > 0)) {
+                        onScoreValidation(roundIndex, matchIndex, scoreA, scoreB);
+                    }
+                }
+            };
+
+            return h('div', { style: { margin: '0 auto 32px', maxWidth: '400px' } }, [
+                h('div', { key: 'top-post', style: { display: 'flex', justifyContent: 'center', marginBottom: '4px' } },
+                    h('div', { style: { width: '8px', height: '16px', backgroundColor: '#000' } })
+                ),
+                h('div', { key: 'court', style: { backgroundColor: '#f7fafc', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', display: 'grid', gridTemplateColumns: '2fr 1fr 4px 1fr 2fr', border: '5px solid white' } }, [
+                    h('div', { key: 'left-team', style: { display: 'grid', gridTemplateRows: '1fr 1fr', borderRight: '2px solid white' } }, [
+                        h('div', { key: 'p1', style: { backgroundColor: '#325682', color: 'white', textAlign: 'center', padding: '24px 16px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid white' } }, teamA[0].firstName || teamA[0].name),
+                        h('div', { key: 'p2', style: { backgroundColor: '#325682', color: 'white', textAlign: 'center', padding: '24px 16px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, teamA[1].firstName || teamA[1].name)
+                    ]),
+                    h('div', { key: 'left-score', style: { backgroundColor: '#a0aec0', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+                        h('input', {
+                            type: 'tel',
+                            inputMode: 'numeric',
+                            value: matchScores.teamA,
+                            onChange: (e) => {
+                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                const numValue = parseInt(value) || 0;
+                                if (value === '' || numValue <= 15) {
+                                    handleScoreChange('teamA', value);
+                                }
+                            },
+                            onFocus: (e) => { e.target.select(); },
+                            style: { width: '52px', height: '52px', textAlign: 'center', fontSize: '22px', fontWeight: 'bold', border: '2px solid #4a5568', backgroundColor: 'white', outline: 'none', borderRadius: '4px', touchAction: 'manipulation' },
+                            placeholder: '0'
+                        })
+                    ),
+                    h('div', { key: 'net', style: { backgroundColor: '#000' } }),
+                    h('div', { key: 'right-score', style: { backgroundColor: '#a0aec0', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+                        h('input', {
+                            type: 'tel',
+                            inputMode: 'numeric',
+                            value: matchScores.teamB,
+                            onChange: (e) => {
+                                const value = e.target.value.replace(/[^0-9]/g, '');
+                                const numValue = parseInt(value) || 0;
+                                if (value === '' || numValue <= 15) {
+                                    handleScoreChange('teamB', value);
+                                }
+                            },
+                            onFocus: (e) => { e.target.select(); },
+                            style: { width: '52px', height: '52px', textAlign: 'center', fontSize: '22px', fontWeight: 'bold', border: '2px solid #4a5568', backgroundColor: 'white', outline: 'none', borderRadius: '4px', touchAction: 'manipulation' },
+                            placeholder: '0'
+                        })
+                    ),
+                    h('div', { key: 'right-team', style: { display: 'grid', gridTemplateRows: '1fr 1fr', borderLeft: '2px solid white' } }, [
+                        h('div', { key: 'p3', style: { backgroundColor: '#325682', color: 'white', textAlign: 'center', padding: '24px 16px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid white' } }, teamB[0].firstName || teamB[0].name),
+                        h('div', { key: 'p4', style: { backgroundColor: '#325682', color: 'white', textAlign: 'center', padding: '24px 16px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, teamB[1].firstName || teamB[1].name)
+                    ])
+                ]),
+                h('div', { key: 'bottom-post', style: { display: 'flex', justifyContent: 'center', marginTop: '4px' } },
+                    h('div', { style: { width: '8px', height: '16px', backgroundColor: '#000' } })
+                ),
+                h('div', { key: 'court-number', style: { textAlign: 'center', marginTop: '12px' } },
+                    h('span', { style: { backgroundColor: '#deff01', color: '#1a202c', fontWeight: 'bold', padding: '8px 16px', fontSize: '18px', borderRadius: '4px' } }, `Court ${courtNumber}`)
+                )
+            ]);
+        };
+
+        // Main Tournament App Component
+        const TournamentApp = () => {
+            const [step, setStep] = useState(1);
+            const [config, setConfig] = useState({
+                courts: 2, 
+                totalPlayers: 8, 
+                rounds: 6, 
+                useDefaults: true,
+                avoidMMvsFF: true, 
+                useRatingBalance: true, 
+                ratingFactor: 3, 
+                roundDuration: 13
+            });
+            const [players, setPlayers] = useState([]);
+            const [showPlayerDialog, setShowPlayerDialog] = useState(false);
+            const [tournament, setTournament] = useState(null);
+            const [currentRound, setCurrentRound] = useState(0);
+            const [scores, setScores] = useState({});
+            const [phase, setPhase] = useState('setup');
+            const [roundStarted, setRoundStarted] = useState(false);
+            const [timeRemaining, setTimeRemaining] = useState(0);
+            const [timerRunning, setTimerRunning] = useState(false);
+            const [loading, setLoading] = useState(false);
+            const [errorMessage, setErrorMessage] = useState('');
+            const [successMessage, setSuccessMessage] = useState('');
+            const [showSkipDialog, setShowSkipDialog] = useState(false);
+            
+            // Score validation state
+            const [scoreValidation, setScoreValidation] = useState({
+                isOpen: false,
+                roundIndex: null,
+                matchIndex: null,
+                teamAScore: null,
+                teamBScore: null
+            });
+
+            // Timer effect
+            useEffect(() => {
+                let interval;
+                if (timerRunning && timeRemaining > 0) {
+                    interval = setInterval(() => {
+                        setTimeRemaining(prev => {
+                            if (prev <= 1) {
+                                setTimerRunning(false);
+                                return 0;
+                            }
+                            return prev - 1;
+                        });
+                    }, 1000);
+                }
+                return () => clearInterval(interval);
+            }, [timerRunning, timeRemaining]);
+
+            const showError = (message) => {
+                setErrorMessage(message);
+                setTimeout(() => setErrorMessage(''), 5000);
+            };
+
+            const showSuccess = (message) => {
+                setSuccessMessage(message);
+                setTimeout(() => setSuccessMessage(''), 3000);
+            };
+
+            const generateTournament = async () => {
+                setLoading(true);
+                setErrorMessage('');
+                
+                try {
+                    // Prepare players data
+                    let playersToSend = [];
+                    if (!config.useDefaults) {
+                        // Convert custom players to format expected by backend
+                        playersToSend = players.map(p => ({
+                            name: `${p.firstName} ${p.lastName}`.trim(),
+                            firstName: p.firstName,
+                            lastName: p.lastName,
+                            gender: p.gender,
+                            rating: p.rating
+                        }));
+                    }
+
+                    const requestData = {
+                        courts: config.courts,
+                        players: playersToSend,
+                        rounds: config.rounds,
+                        useDefaults: config.useDefaults,
+                        avoidMMvsFF: config.avoidMMvsFF,
+                        useRatingBalance: config.useRatingBalance,
+                        ratingFactor: config.ratingFactor,
+                        roundDuration: config.roundDuration,
+                        totalPlayers: config.totalPlayers
+                    };
+
+                    const response = await fetch('/api/generate_tournament', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        setTournament(result);
+                        setCurrentRound(0);
+                        setScores({});
+                        setPhase('playing');
+                        showSuccess('Tournament generated successfully!');
+                        setStep(3);
+                    } else {
+                        showError(result.error || 'Failed to generate tournament');
+                    }
+                } catch (error) {
+                    showError('Network error: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const updateScore = async (roundIndex, matchIndex, team, score) => {
+                try {
+                    const response = await fetch('/api/update_score', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            roundIndex,
+                            matchIndex,
+                            team,
+                            score
+                        })
+                    });
+
+                    if (response.ok) {
+                        // Update local state
+                        setScores(prev => ({
+                            ...prev,
+                            [roundIndex]: {
+                                ...prev[roundIndex],
+                                [matchIndex]: { 
+                                    ...prev[roundIndex]?.[matchIndex], 
+                                    [team]: score 
+                                }
+                            }
+                        }));
+                    } else {
+                        showError('Failed to update score');
+                    }
+                } catch (error) {
+                    showError('Network error: ' + error.message);
+                }
+            };
+
+            const handleScoreValidation = (roundIndex, matchIndex, teamAScore, teamBScore) => {
+                setScoreValidation({
+                    isOpen: true,
+                    roundIndex,
+                    matchIndex,
+                    teamAScore,
+                    teamBScore
+                });
+            };
+
+            const confirmScore = () => {
+                // Score is already updated, just close the dialog
+                setScoreValidation({
+                    isOpen: false,
+                    roundIndex: null,
+                    matchIndex: null,
+                    teamAScore: null,
+                    teamBScore: null
+                });
+            };
+
+            const closeScoreValidation = () => {
+                setScoreValidation({
+                    isOpen: false,
+                    roundIndex: null,
+                    matchIndex: null,
+                    teamAScore: null,
+                    teamBScore: null
+                });
+                // Optionally clear the scores to allow re-entry
+                // This would require a separate API call to clear scores
+            };
+
+            const isRoundComplete = (roundIndex) => {
+                if (!tournament || !scores[roundIndex]) return false;
+                const roundMatches = tournament.schedule[roundIndex]?.matches || [];
+                return roundMatches.every((match, matchIndex) => {
+                    const matchScores = scores[roundIndex][matchIndex];
+                    return matchScores && matchScores.teamA && matchScores.teamB;
+                });
+            };
+
+            const handleAdvanceRound = () => {
+                if (currentRound < tournament.schedule.length - 1) {
+                    // Calculate if skips are possible (more players than needed for courts)
+                    const totalPlayers = tournament.players.length;
+                    const playingPlayers = config.courts * 4;
+                    const maxSkips = totalPlayers - playingPlayers;
+                    
+                    console.log(`DEBUG: Total players: ${totalPlayers}, Playing: ${playingPlayers}, Max skips: ${maxSkips}`);
+                    
+                    if (maxSkips > 0) {
+                        setShowSkipDialog(true);
+                    } else {
+                        // No skips possible, advance directly
+                        advanceRound([]);
+                    }
+                } else {
+                    setPhase('completed');
+                }
+            };
+
+            const advanceRound = async (skipPlayers = []) => {
+                try {
+                    setLoading(true);
+                    const response = await fetch('/api/advance_round', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            skipPlayers
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.completed) {
+                        setPhase('completed');
+                    } else if (result.success) {
+                        // Refresh tournament state from server
+                        const stateResponse = await fetch('/api/get_tournament_state');
+                        const state = await stateResponse.json();
+                        
+                        if (state.tournament) {
+                            setTournament(state.tournament);
+                            setCurrentRound(state.current_round);
+                            setScores(state.scores);
+                        }
+                        
+                        setRoundStarted(false);
+                        setTimerRunning(false);
+                        setTimeRemaining(0);
+                        
+                        if (skipPlayers.length > 0) {
+                            showSuccess(`Advanced to Round ${result.round + 1} with ${skipPlayers.length} player(s) skipping`);
+                        } else {
+                            showSuccess(`Advanced to Round ${result.round + 1}`);
+                        }
+                    } else {
+                        showError(result.error || 'Failed to advance round');
+                    }
+                } catch (error) {
+                    showError('Network error: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const startRound = () => {
+                setRoundStarted(true);
+                setTimeRemaining(config.roundDuration * 60);
+                setTimerRunning(true);
+            };
+
+            const formatTime = (seconds) => {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            };
+
+            const isLastMinute = timeRemaining <= 60 && timeRemaining > 0;
+
+            // Step 1: Configuration
+            if (step === 1) {
+                return h('div', { 
+                    style: { 
+                        minHeight: '100vh', 
+                        background: '#325682', 
+                        color: 'white', 
+                        padding: '24px' 
+                    } 
+                }, [
+                    h(DiNKRLogo, { key: 'logo' }),
+                    
+                    errorMessage ? h('div', { key: 'error', className: 'error-message' }, errorMessage) : null,
+                    successMessage ? h('div', { key: 'success', className: 'success-message' }, successMessage) : null,
+                    
+                    h('div', { key: 'config', className: 'card' }, [
+                        h('h3', { 
+                            key: 'title', 
+                            style: { fontSize: '20px', fontWeight: '600', marginBottom: '20px', color: '#deff01' } 
+                        }, 'Tournament Configuration'),
+                        h('div', { 
+                            key: 'fields', 
+                            style: { display: 'flex', flexDirection: 'column', gap: '20px' } 
+                        }, [
+                            h('div', { key: 'courts' }, [
+                                h('label', { 
+                                    style: { display: 'block', fontSize: '16px', fontWeight: '500', marginBottom: '8px', color: 'white' } 
+                                }, 'Number of Courts'),
+                                h('input', { 
+                                    type: 'number', 
+                                    min: 1, 
+                                    max: 10, 
+                                    value: config.courts, 
+                                    onChange: (e) => setConfig(prev => ({...prev, courts: Math.max(1, parseInt(e.target.value) || 1)})),
+                                    className: 'input', 
+                                    style: { 
+                                        width: '100%', 
+                                        backgroundColor: 'rgba(255, 255, 255, 0.15)', 
+                                        border: '2px solid rgba(255, 255, 255, 0.3)', 
+                                        color: 'white',
+                                        fontSize: '16px'
+                                    } 
+                                })
+                            ]),
+                            h('div', { key: 'players' }, [
+                                h('label', { 
+                                    style: { display: 'block', fontSize: '16px', fontWeight: '500', marginBottom: '8px', color: 'white' } 
+                                }, 'Number of Players'),
+                                h('input', { 
+                                    type: 'number', 
+                                    min: config.courts * 4, 
+                                    max: 24, 
+                                    value: config.totalPlayers, 
+                                    onChange: (e) => setConfig(prev => ({...prev, totalPlayers: Math.max(config.courts * 4, parseInt(e.target.value) || config.courts * 4)})),
+                                    className: 'input', 
+                                    style: { 
+                                        width: '100%', 
+                                        backgroundColor: 'rgba(255, 255, 255, 0.15)', 
+                                        border: '2px solid rgba(255, 255, 255, 0.3)', 
+                                        color: 'white',
+                                        fontSize: '16px'
+                                    } 
+                                }),
+                                h('p', { 
+                                    style: { fontSize: '14px', color: '#94a3b8', marginTop: '6px' } 
+                                }, `Minimum: ${config.courts * 4} (4 players per court)`)
+                            ]),
+                            h('div', { key: 'rounds' }, [
+                                h('label', { 
+                                    style: { display: 'block', fontSize: '16px', fontWeight: '500', marginBottom: '8px', color: 'white' } 
+                                }, 'Number of Rounds'),
+                                h('input', { 
+                                    type: 'number', 
+                                    min: 3, 
+                                    max: 15, 
+                                    value: config.rounds, 
+                                    onChange: (e) => setConfig(prev => ({...prev, rounds: Math.max(3, parseInt(e.target.value) || 3)})),
+                                    className: 'input', 
+                                    style: { 
+                                        width: '100%', 
+                                        backgroundColor: 'rgba(255, 255, 255, 0.15)', 
+                                        border: '2px solid rgba(255, 255, 255, 0.3)', 
+                                        color: 'white',
+                                        fontSize: '16px'
+                                    } 
+                                })
+                            ]),
+                            h('div', { key: 'duration' }, [
+                                h('label', { 
+                                    style: { display: 'block', fontSize: '16px', fontWeight: '500', marginBottom: '8px', color: 'white' } 
+                                }, 'Round Duration (minutes)'),
+                                h('input', { 
+                                    type: 'number', 
+                                    min: 10, 
+                                    max: 15, 
+                                    value: config.roundDuration, 
+                                    onChange: (e) => setConfig(prev => ({...prev, roundDuration: Math.max(10, Math.min(15, parseInt(e.target.value) || 13))})),
+                                    className: 'input', 
+                                    style: { 
+                                        width: '100%', 
+                                        backgroundColor: 'rgba(255, 255, 255, 0.15)', 
+                                        border: '2px solid rgba(255, 255, 255, 0.3)', 
+                                        color: 'white',
+                                        fontSize: '16px'
+                                    } 
+                                }),
+                                h('p', { 
+                                    style: { fontSize: '14px', color: '#94a3b8', marginTop: '6px' } 
+                                }, 'Range: 10-15 minutes (default: 13)')
+                            ])
+                        ])
+                    ]),
+                    
+                    loading ? h('div', { key: 'loading', className: 'spinner' }) : null,
+                    
+                    h('button', { 
+                        key: 'next', 
+                        onClick: () => setStep(2), 
+                        disabled: config.totalPlayers < config.courts * 4 || loading, 
+                        className: 'btn', 
+                        style: { 
+                            width: '100%', 
+                            backgroundColor: config.totalPlayers >= config.courts * 4 ? '#deff01' : '#64748b', 
+                            color: '#1e293b', 
+                            padding: '18px', 
+                            fontSize: '18px',
+                            fontWeight: 'bold',
+                            borderRadius: '12px'
+                        } 
+                    }, 'Next: Configure Players')
+                ]);
+            }
+
+            // Step 2: Player Configuration
+            if (step === 2) {
+                return h('div', { 
+                    style: { 
+                        minHeight: '100vh', 
+                        background: '#325682', 
+                        color: 'white', 
+                        padding: '24px' 
+                    } 
+                }, [
+                    h('div', { 
+                        key: 'header', 
+                        style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px' } 
+                    }, [
+                        h('button', { 
+                            key: 'back', 
+                            onClick: () => setStep(1), 
+                            style: { 
+                                padding: '12px', 
+                                backgroundColor: 'rgba(255, 255, 255, 0.1)', 
+                                border: 'none', 
+                                color: 'white', 
+                                cursor: 'pointer', 
+                                borderRadius: '8px' 
+                            } 
+                        }, h(ChevronLeft, { size: 24 })),
+                        h('h2', { 
+                            key: 'title', 
+                            style: { fontSize: '24px', fontWeight: 'bold', color: '#deff01' } 
+                        }, 'Player Configuration'),
+                        h('div', { style: { width: '48px' } })
+                    ]),
+                    
+                    errorMessage ? h('div', { key: 'error', className: 'error-message' }, errorMessage) : null,
+                    successMessage ? h('div', { key: 'success', className: 'success-message' }, successMessage) : null,
+                    
+                    h('div', { key: 'player-options', className: 'card' }, [
+                        h('h3', { 
+                            key: 'title', 
+                            style: { marginBottom: '20px', color: '#deff01', fontSize: '20px' } 
+                        }, 'Player Setup'),
+                        h('div', { 
+                            key: 'options',
+                            style: { display: 'flex', flexDirection: 'column', gap: '16px' }
+                        }, [
+                            h('label', { 
+                                key: 'defaults', 
+                                style: { display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' } 
+                            }, [
+                                h('input', { 
+                                    type: 'radio', 
+                                    name: 'playerType',
+                                    checked: config.useDefaults, 
+                                    onChange: () => setConfig(prev => ({...prev, useDefaults: true})), 
+                                    style: { width: '20px', height: '20px' } 
+                                }),
+                                h('span', { style: { fontSize: '16px' } }, 'Use default players with balanced ratings')
+                            ]),
+                            h('label', { 
+                                key: 'custom', 
+                                style: { display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' } 
+                            }, [
+                                h('input', { 
+                                    type: 'radio', 
+                                    name: 'playerType',
+                                    checked: !config.useDefaults, 
+                                    onChange: () => setConfig(prev => ({...prev, useDefaults: false})), 
+                                    style: { width: '20px', height: '20px' } 
+                                }),
+                                h('span', { style: { fontSize: '16px' } }, 'Add custom players')
+                            ])
+                        ]),
+                        
+                        !config.useDefaults ? h('div', { 
+                            key: 'custom-controls',
+                            style: { marginTop: '20px', textAlign: 'center' }
+                        }, [
+                            h('button', {
+                                onClick: () => setShowPlayerDialog(true),
+                                style: {
+                                    backgroundColor: '#deff01',
+                                    color: '#1a202c',
+                                    border: 'none',
+                                    padding: '12px 24px',
+                                    borderRadius: '8px',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    cursor: 'pointer'
+                                }
+                            }, `Configure ${config.totalPlayers} Players`)
+                        ]) : h('div', { 
+                            key: 'default-info',
+                            style: { marginTop: '20px', fontSize: '14px', color: '#94a3b8' }
+                        }, `The system will automatically select ${config.totalPlayers} players with balanced ratings and mixed genders.`)
+                    ]),
+                    
+                    loading ? h('div', { key: 'loading', className: 'spinner' }) : null,
+                    
+                    h('button', { 
+                        key: 'generate', 
+                        onClick: generateTournament, 
+                        disabled: loading || (!config.useDefaults && players.length !== config.totalPlayers),
+                        className: 'btn', 
+                        style: { 
+                            width: '100%', 
+                            backgroundColor: (loading || (!config.useDefaults && players.length !== config.totalPlayers)) ? '#64748b' : '#deff01', 
+                            color: '#1e293b', 
+                            padding: '18px', 
+                            fontSize: '18px',
+                            fontWeight: 'bold',
+                            borderRadius: '12px'
+                        } 
+                    }, loading ? 'Generating Tournament...' : 'Generate Tournament'),
+
+                    // Player Dialog
+                    h(PlayerDialog, {
+                        key: 'player-dialog',
+                        isOpen: showPlayerDialog,
+                        onClose: () => setShowPlayerDialog(false),
+                        players,
+                        setPlayers,
+                        totalPlayers: config.totalPlayers
+                    })
+                ]);
+            }
+
+            // Step 3: Tournament Play
+            if (step === 3 && tournament) {
+                const currentRoundData = tournament.schedule[currentRound];
+                const isCurrentRoundComplete = isRoundComplete(currentRound);
+                const isLastRound = currentRound >= tournament.schedule.length - 1;
+
+                if (phase === 'completed') {
+                    // Tournament Results
+                    return h('div', { 
+                        style: { 
+                            minHeight: '100vh', 
+                            background: '#325682', 
+                            color: 'white', 
+                            padding: '24px' 
+                        } 
+                    }, [
+                        h('div', { 
+                            key: 'header', 
+                            style: { textAlign: 'center', marginBottom: '32px' } 
+                        }, [
+                            h(Trophy, { size: 80 }),
+                            h('h1', { 
+                                style: { fontSize: '36px', fontWeight: 'bold', color: '#deff01', marginTop: '20px' } 
+                            }, 'Tournament Complete!')
+                        ]),
+                        
+                        h('button', { 
+                            key: 'restart', 
+                            onClick: () => { 
+                                setStep(1); 
+                                setTournament(null);
+                                setPhase('setup');
+                                setCurrentRound(0);
+                                setScores({});
+                                setRoundStarted(false);
+                                setTimerRunning(false);
+                                setTimeRemaining(0);
+                            }, 
+                            className: 'btn', 
+                            style: { 
+                                width: '100%',
+                                backgroundColor: '#deff01', 
+                                color: '#1e293b', 
+                                padding: '18px', 
+                                fontSize: '18px',
+                                fontWeight: 'bold',
+                                borderRadius: '12px'
+                            } 
+                        }, 'Start New Tournament')
+                    ]);
+                }
+
+                // Playing Phase with Beautiful Courts
+                return h('div', { style: { minHeight: '100vh', background: '#325682' } }, [
+                    h('div', { key: 'header', style: { backgroundColor: '#1a202c', color: 'white', padding: '8px 16px', position: 'sticky', top: 0, zIndex: 10 } },
+                        h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } }, [
+                            h('button', { key: 'back', onClick: () => setStep(2), style: { padding: '4px', backgroundColor: 'transparent', border: 'none', color: 'white', cursor: 'pointer', borderRadius: '4px' } }, h(ChevronLeft, { size: 20 })),
+                            h('h2', { key: 'title', style: { fontSize: '18px', fontWeight: 'bold', color: '#deff01' } }, 
+                                `ROUND ${currentRoundData?.round || 1}`
+                            ),
+                            h('div', { key: 'spacer', style: { width: '28px' } })
+                        ])
+                    ),
+                    
+                    h('div', { key: 'content', style: { padding: '16px' } }, [
+                        errorMessage ? h('div', { key: 'error', className: 'error-message' }, errorMessage) : null,
+                        successMessage ? h('div', { key: 'success', className: 'success-message' }, successMessage) : null,
+                        
+                        // Timer and Start Round Button
+                        h('div', { key: 'timer-section', style: { textAlign: 'center', marginBottom: '20px' } }, [
+                            !roundStarted ? h('button', {
+                                key: 'start-round',
+                                onClick: startRound,
+                                className: 'btn',
+                                style: {
+                                    backgroundColor: '#16a34a',
+                                    color: 'white',
+                                    padding: '12px 24px',
+                                    fontSize: '18px',
+                                    fontWeight: 'bold',
+                                    marginBottom: '10px'
+                                }
+                            }, 'START ROUND') : null,
+                            
+                            roundStarted ? h('div', {
+                                key: 'timer-display',
+                                style: {
+                                    display: 'inline-block',
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    fontSize: '24px',
+                                    fontWeight: 'bold',
+                                    backgroundColor: isLastMinute ? '#dc2626' : 'white',
+                                    color: isLastMinute ? 'white' : 'black',
+                                    border: '2px solid #000'
+                                }
+                            }, formatTime(timeRemaining)) : null
+                        ]),
+                        
+                        // Beautiful Courts
+                        ...currentRoundData.matches.map((match, matchIndex) => 
+                            h(Court, { 
+                                key: matchIndex, 
+                                match, 
+                                matchIndex, 
+                                roundIndex: currentRound, 
+                                courtNumber: matchIndex + 1,
+                                scores,
+                                updateScore,
+                                onScoreValidation: handleScoreValidation
+                            })
+                        ),
+                        
+                        // Sit Outs
+                        currentRoundData.sit_outs && currentRoundData.sit_outs.length > 0 ? h('div', { key: 'sitouts', style: { backgroundColor: 'rgba(107, 114, 128, 0.5)', padding: '16px', borderRadius: '8px', marginBottom: '24px', color: 'white' } }, [
+                            h('strong', { style: { color: '#deff01' } }, 'Sitting Out: '), h('span', {}, currentRoundData.sit_outs.join(', '))
+                        ]) : null,
+                        
+                        // Americano Tip
+                        h('div', { key: 'tip', style: { backgroundColor: 'rgba(222, 255, 1, 0.2)', border: '1px solid #deff01', borderRadius: '8px', padding: '16px', marginBottom: '24px', color: '#fef5e7' } },
+                            h('p', { style: { fontSize: '14px' } }, '💡 Americano Tip: Every point counts toward your individual total! Aim for the highest score possible, even if your team is losing.')
+                        ),
+                        
+                        // Round Controls
+                        isCurrentRoundComplete ? h('button', { 
+                            key: 'next', 
+                            onClick: () => {
+                                console.log('Next Round clicked - Current round:', currentRound, 'Total rounds:', tournament.schedule.length);
+                                console.log('Is last round:', isLastRound);
+                                
+                                if (isLastRound) {
+                                    setPhase('completed');
+                                } else {
+                                    handleAdvanceRound();
+                                }
+                            }, 
+                            disabled: loading,
+                            className: 'btn', 
+                            style: { 
+                                width: '100%', 
+                                backgroundColor: loading ? '#64748b' : (isLastRound ? '#805ad5' : '#deff01'), 
+                                color: isLastRound ? 'white' : '#1a202c', 
+                                padding: '16px', 
+                                fontSize: '18px', 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center', 
+                                gap: '8px',
+                                fontWeight: 'bold'
+                            } 
+                        }, [
+                            h(CheckCircle, { size: 24 }), 
+                            h('span', {}, loading ? 'Loading...' : (isLastRound ? 'Complete Tournament' : 'Next Round'))
+                        ]) : h('div', { 
+                            key: 'waiting', 
+                            style: { 
+                                width: '100%', 
+                                backgroundColor: '#718096', 
+                                color: '#cbd5e0', 
+                                fontWeight: 'bold', 
+                                padding: '16px', 
+                                borderRadius: '8px', 
+                                fontSize: '18px', 
+                                textAlign: 'center' 
+                            } 
+                        }, 'Enter all scores to continue'),
+                        
+                        // Debug info (remove in production)
+                        h('div', {
+                            key: 'debug',
+                            style: {
+                                marginTop: '20px',
+                                padding: '12px',
+                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                borderRadius: '8px',
+                                fontSize: '12px',
+                                color: '#cbd5e0'
+                            }
+                        }, [
+                            h('div', {}, `Debug: Total players: ${tournament.players.length}`),
+                            h('div', {}, `Courts: ${config.courts} (needs ${config.courts * 4} players)`),
+                            h('div', {}, `Can skip: ${tournament.players.length - (config.courts * 4)} players`),
+                            h('div', {}, `Current round: ${currentRound + 1}/${tournament.schedule.length}`)
+                        ])
+                    ]),
+
+                    // Score Validation Dialog
+                    h(ScoreValidationDialog, {
+                        key: 'score-validation',
+                        isOpen: scoreValidation.isOpen,
+                        onClose: closeScoreValidation,
+                        teamAScore: scoreValidation.teamAScore,
+                        teamBScore: scoreValidation.teamBScore,
+                        onConfirm: confirmScore
+                    }),
+
+                    // Skip Player Dialog
+                    h(SkipPlayerDialog, {
+                        key: 'skip-dialog',
+                        isOpen: showSkipDialog,
+                        onClose: () => setShowSkipDialog(false),
+                        tournament,
+                        currentRound,
+                        onSkipPlayersSelected: advanceRound,
+                        maxSkips: tournament ? Math.max(0, tournament.players.length - (config.courts * 4)) : 0
+                    })
+                ]);
+            }
+
+            // Loading state
+            return h('div', { 
+                style: { 
+                    padding: '40px', 
+                    textAlign: 'center', 
+                    minHeight: '100vh', 
+                    background: '#325682', 
+                    color: 'white',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                } 
+            }, [
+                h(DiNKRLogo, { key: 'logo', size: 'large' }),
+                h('h2', { style: { marginBottom: '20px' } }, 'Loading Tournament System...'),
+                h('div', { className: 'spinner' })
+            ]);
+        };
+
+        ReactDOM.render(React.createElement(TournamentApp), document.getElementById('root'));
+    </script>
+</body>
+</html>
