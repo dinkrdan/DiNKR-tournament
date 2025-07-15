@@ -144,8 +144,42 @@
         /* Ensure smooth scrolling on mobile */
         html { scroll-behavior: smooth; }
         
+        /* Number input with controls */
+        .number-input-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .number-input-btn {
+            background: #deff01;
+            color: #1a202c;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .number-input-btn:hover {
+            background: #c5d601;
+            transform: translateY(-1px);
+        }
+        
+        .number-input-btn:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         /* Prevent zoom on double-tap for inputs */
-        input[type="tel"], input[type="text"], select {
+        input[type="tel"], input[type="text"], input[type="number"], select {
             font-size: 16px;
             transform: translateZ(0);
         }
@@ -241,6 +275,75 @@
                     color: 'white'
                 }
             }, '✓');
+        };
+
+        // Number Input Component with +/- buttons
+        const NumberInput = ({ value, onChange, min = 1, max = 100, label, helpText, style = {} }) => {
+            const increment = () => {
+                if (value < max) {
+                    onChange(value + 1);
+                }
+            };
+
+            const decrement = () => {
+                if (value > min) {
+                    onChange(value - 1);
+                }
+            };
+
+            const handleInputChange = (e) => {
+                const newValue = parseInt(e.target.value) || min;
+                const clampedValue = Math.max(min, Math.min(max, newValue));
+                onChange(clampedValue);
+            };
+
+            return h('div', { style: { marginBottom: '20px' } }, [
+                h('label', { 
+                    key: 'label',
+                    style: { display: 'block', fontSize: '16px', fontWeight: '500', marginBottom: '8px', color: 'white' } 
+                }, label),
+                h('div', {
+                    key: 'input-container',
+                    className: 'number-input-container'
+                }, [
+                    h('button', {
+                        key: 'decrement',
+                        onClick: decrement,
+                        disabled: value <= min,
+                        className: 'number-input-btn',
+                        type: 'button'
+                    }, '−'),
+                    h('input', { 
+                        key: 'input',
+                        type: 'number', 
+                        min, 
+                        max, 
+                        value, 
+                        onChange: handleInputChange,
+                        className: 'input', 
+                        style: { 
+                            width: '100px',
+                            textAlign: 'center',
+                            backgroundColor: 'rgba(255, 255, 255, 0.15)', 
+                            border: '2px solid rgba(255, 255, 255, 0.3)', 
+                            color: 'white',
+                            fontSize: '16px',
+                            ...style
+                        } 
+                    }),
+                    h('button', {
+                        key: 'increment',
+                        onClick: increment,
+                        disabled: value >= max,
+                        className: 'number-input-btn',
+                        type: 'button'
+                    }, '+')
+                ]),
+                helpText ? h('p', { 
+                    key: 'help',
+                    style: { fontSize: '14px', color: '#94a3b8', marginTop: '6px' } 
+                }, helpText) : null
+            ]);
         };
 
         // Score Validation Dialog Component
@@ -1096,6 +1199,7 @@
             const [successMessage, setSuccessMessage] = useState('');
             const [showSkipDialog, setShowSkipDialog] = useState(false);
             const [showSwitchDialog, setShowSwitchDialog] = useState(false);
+            const [pendingSkipPlayers, setPendingSkipPlayers] = useState([]);
             
             // Score validation state
             const [scoreValidation, setScoreValidation] = useState({
@@ -1175,8 +1279,8 @@
                         setTournament(result);
                         setCurrentRound(0);
                         setScores({});
-                        setPhase('playing');
-                        showSuccess('Tournament generated successfully!');
+                        setPhase('setup'); // Start in setup phase to allow assignment review
+                        showSuccess('Tournament generated successfully! Review assignments or start Round 1.');
                         setStep(3);
                     } else {
                         showError(result.error || 'Failed to generate tournament');
@@ -1284,16 +1388,58 @@
             };
 
             const handleSkipPlayersSelected = (skipPlayers) => {
+                setPendingSkipPlayers(skipPlayers);
                 // After skip dialog, show switch dialog
                 setShowSwitchDialog(true);
-                // Store skip players for later use
-                window.tempSkipPlayers = skipPlayers;
             };
 
             const handleSwitchesConfirmed = (switches) => {
-                const skipPlayers = window.tempSkipPlayers || [];
-                advanceRound(skipPlayers, switches);
-                window.tempSkipPlayers = null;
+                if (phase === 'setup') {
+                    // For Round 1, apply switches and start playing
+                    applyRound1Switches(switches);
+                } else {
+                    // For subsequent rounds, advance with skip players and switches
+                    const skipPlayers = pendingSkipPlayers;
+                    setPendingSkipPlayers([]);
+                    advanceRound(skipPlayers, switches);
+                }
+            };
+
+            const applyRound1Switches = async (switches) => {
+                try {
+                    if (switches.length > 0) {
+                        setLoading(true);
+                        const response = await fetch('/api/apply_player_switches', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                switches,
+                                roundIndex: 0
+                            })
+                        });
+
+                        if (response.ok) {
+                            // Refresh tournament state
+                            const stateResponse = await fetch('/api/get_tournament_state');
+                            const state = await stateResponse.json();
+                            
+                            if (state.tournament) {
+                                setTournament(state.tournament);
+                            }
+                            
+                            showSuccess(`Applied ${switches.length} manual assignment(s) for Round 1`);
+                        } else {
+                            showError('Failed to apply switches');
+                        }
+                    }
+                    
+                    // Transition to playing phase
+                    setPhase('playing');
+                } catch (error) {
+                    showError('Network error: ' + error.message);
+                } finally {
+                    setLoading(false);
+                }
             };
 
             const advanceRound = async (skipPlayers = [], playerSwitches = []) => {
@@ -1383,92 +1529,40 @@
                             key: 'fields', 
                             style: { display: 'flex', flexDirection: 'column', gap: '20px' } 
                         }, [
-                            h('div', { key: 'courts' }, [
-                                h('label', { 
-                                    style: { display: 'block', fontSize: '16px', fontWeight: '500', marginBottom: '8px', color: 'white' } 
-                                }, 'Number of Courts'),
-                                h('input', { 
-                                    type: 'number', 
-                                    min: 1, 
-                                    max: 10, 
-                                    value: config.courts, 
-                                    onChange: (e) => setConfig(prev => ({...prev, courts: Math.max(1, parseInt(e.target.value) || 1)})),
-                                    className: 'input', 
-                                    style: { 
-                                        width: '100%', 
-                                        backgroundColor: 'rgba(255, 255, 255, 0.15)', 
-                                        border: '2px solid rgba(255, 255, 255, 0.3)', 
-                                        color: 'white',
-                                        fontSize: '16px'
-                                    } 
-                                })
-                            ]),
-                            h('div', { key: 'players' }, [
-                                h('label', { 
-                                    style: { display: 'block', fontSize: '16px', fontWeight: '500', marginBottom: '8px', color: 'white' } 
-                                }, 'Number of Players'),
-                                h('input', { 
-                                    type: 'number', 
-                                    min: 4, 
-                                    max: 100, 
-                                    value: config.totalPlayers, 
-                                    onChange: (e) => setConfig(prev => ({...prev, totalPlayers: Math.max(4, parseInt(e.target.value) || 4)})),
-                                    className: 'input', 
-                                    style: { 
-                                        width: '100%', 
-                                        backgroundColor: 'rgba(255, 255, 255, 0.15)', 
-                                        border: '2px solid rgba(255, 255, 255, 0.3)', 
-                                        color: 'white',
-                                        fontSize: '16px'
-                                    } 
-                                }),
-                                h('p', { 
-                                    style: { fontSize: '14px', color: '#94a3b8', marginTop: '6px' } 
-                                }, `Supports any number of players. ${config.courts * 4} will play each round.`)
-                            ]),
-                            h('div', { key: 'rounds' }, [
-                                h('label', { 
-                                    style: { display: 'block', fontSize: '16px', fontWeight: '500', marginBottom: '8px', color: 'white' } 
-                                }, 'Number of Rounds'),
-                                h('input', { 
-                                    type: 'number', 
-                                    min: 3, 
-                                    max: 15, 
-                                    value: config.rounds, 
-                                    onChange: (e) => setConfig(prev => ({...prev, rounds: Math.max(3, parseInt(e.target.value) || 3)})),
-                                    className: 'input', 
-                                    style: { 
-                                        width: '100%', 
-                                        backgroundColor: 'rgba(255, 255, 255, 0.15)', 
-                                        border: '2px solid rgba(255, 255, 255, 0.3)', 
-                                        color: 'white',
-                                        fontSize: '16px'
-                                    } 
-                                })
-                            ]),
-                            h('div', { key: 'duration' }, [
-                                h('label', { 
-                                    style: { display: 'block', fontSize: '16px', fontWeight: '500', marginBottom: '8px', color: 'white' } 
-                                }, 'Round Duration (minutes)'),
-                                h('input', { 
-                                    type: 'number', 
-                                    min: 10, 
-                                    max: 15, 
-                                    value: config.roundDuration, 
-                                    onChange: (e) => setConfig(prev => ({...prev, roundDuration: Math.max(10, Math.min(15, parseInt(e.target.value) || 13))})),
-                                    className: 'input', 
-                                    style: { 
-                                        width: '100%', 
-                                        backgroundColor: 'rgba(255, 255, 255, 0.15)', 
-                                        border: '2px solid rgba(255, 255, 255, 0.3)', 
-                                        color: 'white',
-                                        fontSize: '16px'
-                                    } 
-                                }),
-                                h('p', { 
-                                    style: { fontSize: '14px', color: '#94a3b8', marginTop: '6px' } 
-                                }, 'Range: 10-15 minutes (default: 13)')
-                            ])
+                            h(NumberInput, {
+                                key: 'courts',
+                                value: config.courts,
+                                onChange: (value) => setConfig(prev => ({...prev, courts: value})),
+                                min: 1,
+                                max: 10,
+                                label: 'Number of Courts'
+                            }),
+                            h(NumberInput, {
+                                key: 'players',
+                                value: config.totalPlayers,
+                                onChange: (value) => setConfig(prev => ({...prev, totalPlayers: value})),
+                                min: 4,
+                                max: 100,
+                                label: 'Number of Players',
+                                helpText: `Supports any number of players. ${config.courts * 4} will play each round.`
+                            }),
+                            h(NumberInput, {
+                                key: 'rounds',
+                                value: config.rounds,
+                                onChange: (value) => setConfig(prev => ({...prev, rounds: value})),
+                                min: 3,
+                                max: 15,
+                                label: 'Number of Rounds'
+                            }),
+                            h(NumberInput, {
+                                key: 'duration',
+                                value: config.roundDuration,
+                                onChange: (value) => setConfig(prev => ({...prev, roundDuration: value})),
+                                min: 10,
+                                max: 15,
+                                label: 'Round Duration (minutes)',
+                                helpText: 'Range: 10-15 minutes (default: 13)'
+                            })
                         ])
                     ]),
                     
