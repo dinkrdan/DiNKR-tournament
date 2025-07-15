@@ -372,16 +372,19 @@ def apply_player_switches():
         player_map = {}
         for player in tournament['players']:
             # Handle both name formats
-            player_name = player.get('name') or f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
-            player_map[player_name] = player
-            # Also map by firstName if it exists
-            if player.get('firstName'):
-                player_map[player['firstName']] = player
+            if 'name' in player and player['name']:
+                player_map[player['name']] = player
+            elif 'firstName' in player:
+                full_name = f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
+                if full_name:
+                    player_map[full_name] = player
+                    player_map[player['firstName']] = player  # Also map by first name only
         
         print(f"DEBUG: Available players in map: {list(player_map.keys())}")
         print(f"DEBUG: Applying {len(switches)} switches: {switches}")
         
         # Apply each switch
+        switches_applied = 0
         for switch in switches:
             old_player_name = switch['oldPlayer']
             new_player_name = switch['newPlayer']
@@ -390,6 +393,7 @@ def apply_player_switches():
             
             if new_player_name not in player_map:
                 print(f"ERROR: New player '{new_player_name}' not found in player map")
+                print(f"Available players: {list(player_map.keys())}")
                 continue
                 
             new_player = player_map[new_player_name]
@@ -401,10 +405,11 @@ def apply_player_switches():
                 
                 # Check team A
                 for i, player in enumerate(team_a):
-                    current_name = player.get('name') or f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
-                    if current_name == old_player_name:
+                    player_name = player.get('name') or f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
+                    if player_name == old_player_name:
                         team_a[i] = new_player
                         switch_applied = True
+                        switches_applied += 1
                         print(f"DEBUG: Replaced {old_player_name} with {new_player_name} in Team A of match {match_idx}")
                         break
                 
@@ -413,10 +418,11 @@ def apply_player_switches():
                 
                 # Check team B
                 for i, player in enumerate(team_b):
-                    current_name = player.get('name') or f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
-                    if current_name == old_player_name:
+                    player_name = player.get('name') or f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
+                    if player_name == old_player_name:
                         team_b[i] = new_player
                         switch_applied = True
+                        switches_applied += 1
                         print(f"DEBUG: Replaced {old_player_name} with {new_player_name} in Team B of match {match_idx}")
                         break
                 
@@ -425,6 +431,9 @@ def apply_player_switches():
             
             if not switch_applied:
                 print(f"WARNING: Could not find player {old_player_name} to replace")
+        
+        if switches_applied == 0:
+            return jsonify({"error": "No switches were applied. Check player names match exactly."}), 400
         
         # Update sit-outs based on new assignments
         all_playing = set()
@@ -448,7 +457,8 @@ def apply_player_switches():
         session['tournament'] = tournament
         session.modified = True
         
-        return jsonify({"success": True, "applied_switches": len(switches)})
+        print(f"DEBUG: Successfully applied {switches_applied} out of {len(switches)} switches")
+        return jsonify({"success": True, "applied_switches": switches_applied, "total_switches": len(switches)})
         
     except Exception as e:
         print(f"ERROR in apply_player_switches: {str(e)}")
