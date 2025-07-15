@@ -3,17 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DiNKR Americano</title>
-    
-    </script>
-</body>
-</html>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DiNKR Pickleball Americano Tournament</title>
+    <title>DiNKR Americano RR</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <style>
@@ -57,9 +47,9 @@
             background: rgba(255, 255, 255, 0.1); 
             backdrop-filter: blur(10px); 
             border-radius: 12px; 
-            padding: 24px; 
-            margin: 24px auto;
-            max-width: 600px;
+            padding: 20px; 
+            margin: 16px auto;
+            width: 100%;
         }
         .error-message {
             background: #fed7d7;
@@ -192,9 +182,15 @@
         
         /* Main container centering */
         .container {
+            max-width: 400px; /* Optimized for mobile */
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .wide-container {
             max-width: 600px;
             margin: 0 auto;
-            padding: 24px;
+            padding: 20px;
         }
         
         /* Court styling improvements */
@@ -1245,7 +1241,7 @@
                 }, player.firstName || player.name);
             };
 
-            return h('div', { style: { margin: '0 auto 32px', maxWidth: '400px' } }, [
+            return h('div', { style: { margin: '0 auto 24px', maxWidth: '100%', width: '100%' } }, [
                 h('div', { key: 'top-post', style: { display: 'flex', justifyContent: 'center', marginBottom: '4px' } },
                     h('div', { style: { width: '8px', height: '16px', backgroundColor: '#000' } })
                 ),
@@ -1257,7 +1253,10 @@
                         display: 'grid', 
                         gridTemplateColumns: '2fr 1fr 4px 1fr 2fr', 
                         border: '4px solid white',
-                        borderRadius: '4px'
+                        borderRadius: '4px',
+                        width: '100%',
+                        maxWidth: '380px',
+                        margin: '0 auto'
                     } 
                 }, [
                     h('div', { 
@@ -1681,9 +1680,11 @@
                             console.log(`DEBUG: Tournament has ${state.tournament.schedule.length} total rounds`);
                         }
                         
+                        // Reset round state for new round
                         setRoundStarted(false);
                         setTimerRunning(false);
                         setTimeRemaining(0);
+                        setPhase('playing'); // Go directly to playing phase for subsequent rounds
                         
                         let message = `Advanced to Round ${result.round + 1}`;
                         if (skipPlayers.length > 0) {
@@ -1697,6 +1698,7 @@
                         showError(result.error || 'Failed to advance round');
                     }
                 } catch (error) {
+                    console.error('ERROR: Network error in advanceRound:', error);
                     showError('Network error: ' + error.message);
                 } finally {
                     setLoading(false);
@@ -1784,7 +1786,7 @@
                             h('h3', { 
                                 key: 'title', 
                                 style: { fontSize: '20px', fontWeight: '600', marginBottom: '20px', color: '#deff01', textAlign: 'center' } 
-                            }, 'Tournament Set Up'),
+                            }, 'Tournament Configuration'),
                             h('div', { 
                                 key: 'fields', 
                                 style: { display: 'flex', flexDirection: 'column', gap: '20px' } 
@@ -1826,6 +1828,43 @@
                             ])
                         ]),
                         
+                        // Advanced Options
+                        h('div', { key: 'advanced', className: 'card' }, [
+                            h('h3', { 
+                                key: 'advanced-title', 
+                                style: { fontSize: '18px', fontWeight: '600', marginBottom: '16px', color: '#deff01', textAlign: 'center' } 
+                            }, 'Advanced Options'),
+                            h('div', { 
+                                key: 'advanced-options',
+                                style: { display: 'flex', flexDirection: 'column', gap: '16px' }
+                            }, [
+                                h('label', { 
+                                    key: 'avoid-gender', 
+                                    style: { display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' } 
+                                }, [
+                                    h('input', { 
+                                        type: 'checkbox',
+                                        checked: config.avoidMMvsFF, 
+                                        onChange: (e) => setConfig(prev => ({...prev, avoidMMvsFF: e.target.checked})), 
+                                        style: { width: '18px', height: '18px' } 
+                                    }),
+                                    h('span', { style: { fontSize: '14px' } }, 'Avoid Male vs Female matchups when possible')
+                                ]),
+                                h('label', { 
+                                    key: 'rating-balance', 
+                                    style: { display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' } 
+                                }, [
+                                    h('input', { 
+                                        type: 'checkbox',
+                                        checked: config.useRatingBalance, 
+                                        onChange: (e) => setConfig(prev => ({...prev, useRatingBalance: e.target.checked})), 
+                                        style: { width: '18px', height: '18px' } 
+                                    }),
+                                    h('span', { style: { fontSize: '14px' } }, 'Create balanced teams based on player ratings')
+                                ])
+                            ])
+                        ]),
+                        
                         loading ? h('div', { key: 'loading', className: 'spinner' }) : null,
                         
                         h('button', { 
@@ -1854,7 +1893,7 @@
                         minHeight: '100vh', 
                         background: '#325682', 
                         color: 'white', 
-                        padding: '24px',
+                        padding: '20px',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center'
@@ -1862,10 +1901,7 @@
                 }, [
                     h('div', {
                         key: 'container',
-                        style: {
-                            width: '100%',
-                            maxWidth: '600px'
-                        }
+                        className: 'container'
                     }, [
                         h('div', { 
                             key: 'header', 
@@ -2191,7 +2227,8 @@
                         ])
                     ),
                     
-                    h('div', { key: 'content', style: { padding: '16px', paddingBottom: '80px' } }, [
+                    h('div', { key: 'content-container', className: 'container' }, [
+                        h('div', { key: 'content', style: { paddingBottom: '40px' } }, [
                         errorMessage ? h('div', { key: 'error', className: 'error-message' }, errorMessage) : null,
                         successMessage ? h('div', { key: 'success', className: 'success-message' }, successMessage) : null,
                         
