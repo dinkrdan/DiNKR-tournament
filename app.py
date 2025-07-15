@@ -27,13 +27,64 @@ class TournamentGenerator:
             {'name': 'Mary', 'gender': 'F', 'rating': 3.8},
             {'name': 'Nancy', 'gender': 'F', 'rating': 3.7},
             {'name': 'Oscar', 'gender': 'M', 'rating': 3.9},
-            {'name': 'Pete', 'gender': 'M', 'rating': 3.8}
+            {'name': 'Pete', 'gender': 'M', 'rating': 3.8},
+            {'name': 'Quinn', 'gender': 'F', 'rating': 3.6},
+            {'name': 'Rob', 'gender': 'M', 'rating': 3.7},
+            {'name': 'Sarah', 'gender': 'F', 'rating': 4.1},
+            {'name': 'Tom', 'gender': 'M', 'rating': 3.8},
+            {'name': 'Uma', 'gender': 'F', 'rating': 3.9},
+            {'name': 'Victor', 'gender': 'M', 'rating': 3.7},
+            {'name': 'Wendy', 'gender': 'F', 'rating': 3.8},
+            {'name': 'Xavier', 'gender': 'M', 'rating': 3.6}
         ]
         
-        # Track partnerships and opponents across rounds
+        # Track partnerships across rounds to prevent duplicates
         self.partnership_history = defaultdict(int)
-        self.opponent_history = defaultdict(int)
         
+    def get_partnership_key(self, player1, player2):
+        """Create a consistent key for a partnership regardless of order"""
+        names = sorted([player1['name'], player2['name']])
+        return f"{names[0]}|{names[1]}"
+    
+    def have_partnered_before(self, player1, player2):
+        """Check if two players have been partners before"""
+        key = self.get_partnership_key(player1, player2)
+        return self.partnership_history[key] > 0
+    
+    def record_partnership(self, player1, player2):
+        """Record that two players have been partners"""
+        key = self.get_partnership_key(player1, player2)
+        self.partnership_history[key] += 1
+    
+    def validate_player_switch(self, current_matches, player_to_replace, replacement_player):
+        """
+        Validate if a player switch would create duplicate partnerships
+        Returns: (is_valid, message)
+        """
+        # Find which match and position the player_to_replace is in
+        for match_idx, match in enumerate(current_matches):
+            team_a, team_b = match
+            
+            # Check team A
+            for pos, player in enumerate(team_a):
+                if player['name'] == player_to_replace:
+                    # Check if replacement would create duplicate partnership
+                    partner = team_a[1 - pos]  # Get the other player in team A
+                    if self.have_partnered_before(replacement_player, partner):
+                        return False, f"{replacement_player['name']} has already partnered with {partner['name']}"
+                    return True, "Valid switch"
+            
+            # Check team B
+            for pos, player in enumerate(team_b):
+                if player['name'] == player_to_replace:
+                    # Check if replacement would create duplicate partnership
+                    partner = team_b[1 - pos]  # Get the other player in team B
+                    if self.have_partnered_before(replacement_player, partner):
+                        return False, f"{replacement_player['name']} has already partnered with {partner['name']}"
+                    return True, "Valid switch"
+        
+        return False, "Player not found in current matches"
+
     def generate_enhanced_tournament(self, courts, players_list, rounds, skip_players=None):
         """
         Enhanced tournament generator with proper constraint satisfaction
@@ -64,6 +115,12 @@ class TournamentGenerator:
         
         if not matches:
             return {"error": "Could not generate valid matches for this round"}
+        
+        # Record partnerships for future constraint checking
+        for match in matches:
+            team_a, team_b = match
+            self.record_partnership(team_a[0], team_a[1])
+            self.record_partnership(team_b[0], team_b[1])
         
         return {
             "success": True,
@@ -137,6 +194,9 @@ class TournamentGenerator:
         """
         print(f"DEBUG: Generating tournament with {len(players_list)} players, {courts} courts, {rounds} rounds")
         
+        # Initialize partnership history
+        self.partnership_history = defaultdict(int)
+        
         schedule = []
         for round_num in range(rounds):
             round_data = {
@@ -199,7 +259,18 @@ def generate_tournament():
         # Prepare players list
         if use_defaults:
             print("DEBUG: Using default players...")
-            players = random.sample(tournament_gen.default_players, total_players)
+            # No restriction on number of players now
+            if total_players <= len(tournament_gen.default_players):
+                players = random.sample(tournament_gen.default_players, total_players)
+            else:
+                # If they want more players than we have defaults, cycle through them
+                players = []
+                default_cycle = itertools.cycle(tournament_gen.default_players)
+                for i in range(total_players):
+                    player = next(default_cycle).copy()
+                    if i >= len(tournament_gen.default_players):
+                        player['name'] = f"{player['name']}{i // len(tournament_gen.default_players) + 1}"
+                    players.append(player)
             random.shuffle(players)
             print(f"DEBUG: Selected players: {[p['name'] for p in players]}")
         else:
@@ -245,6 +316,91 @@ def generate_tournament():
         traceback.print_exc()
         return jsonify({"error": f"Server error: {str(e)}"}), 500
 
+@app.route('/api/validate_player_switch', methods=['POST'])
+def validate_player_switch():
+    try:
+        data = request.json
+        tournament = session.get('tournament', {})
+        current_round = session.get('current_round', 0)
+        
+        player_to_replace = data.get('playerToReplace')
+        replacement_player_name = data.get('replacementPlayer')
+        
+        # Find the replacement player object
+        replacement_player = None
+        for player in tournament['players']:
+            if player['name'] == replacement_player_name:
+                replacement_player = player
+                break
+        
+        if not replacement_player:
+            return jsonify({"valid": False, "message": "Replacement player not found"})
+        
+        # Get current matches
+        current_matches = tournament['schedule'][current_round]['matches']
+        
+        # Validate the switch
+        is_valid, message = tournament_gen.validate_player_switch(
+            current_matches, player_to_replace, replacement_player
+        )
+        
+        return jsonify({"valid": is_valid, "message": message})
+        
+    except Exception as e:
+        print(f"ERROR in validate_player_switch: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/api/apply_player_switches', methods=['POST'])
+def apply_player_switches():
+    try:
+        data = request.json
+        switches = data.get('switches', [])
+        round_index = data.get('roundIndex', session.get('current_round', 0))
+        
+        tournament = session.get('tournament', {})
+        
+        # Apply all switches to the current round
+        current_matches = tournament['schedule'][round_index]['matches']
+        
+        # Create a mapping of player names to player objects for quick lookup
+        player_map = {p['name']: p for p in tournament['players']}
+        
+        # Apply each switch
+        for switch in switches:
+            old_player_name = switch['oldPlayer']
+            new_player_name = switch['newPlayer']
+            
+            if new_player_name not in player_map:
+                continue
+                
+            new_player = player_map[new_player_name]
+            
+            # Find and replace the player in matches
+            for match in current_matches:
+                team_a, team_b = match
+                
+                # Check team A
+                for i, player in enumerate(team_a):
+                    if player['name'] == old_player_name:
+                        team_a[i] = new_player
+                        break
+                
+                # Check team B
+                for i, player in enumerate(team_b):
+                    if player['name'] == old_player_name:
+                        team_b[i] = new_player
+                        break
+        
+        # Update session
+        session['tournament'] = tournament
+        session.modified = True
+        
+        return jsonify({"success": True})
+        
+    except Exception as e:
+        print(f"ERROR in apply_player_switches: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+
 @app.route('/api/update_score', methods=['POST'])
 def update_score():
     try:
@@ -277,12 +433,13 @@ def advance_round():
     try:
         data = request.json
         skip_players = data.get('skipPlayers', [])
+        player_switches = data.get('playerSwitches', [])
         
         current = session.get('current_round', 0)
         tournament = session.get('tournament', {})
         config = session.get('config', {})
         
-        print(f"DEBUG: Advancing from round {current}, skip players: {skip_players}")
+        print(f"DEBUG: Advancing from round {current}, skip players: {skip_players}, switches: {player_switches}")
         
         if current < len(tournament.get('schedule', [])) - 1:
             # Generate new round with skipped players
@@ -314,6 +471,37 @@ def advance_round():
                 tournament['schedule'][next_round] = next_round_data
             else:
                 tournament['schedule'].append(next_round_data)
+            
+            # Apply any manual player switches for the next round
+            if player_switches:
+                # Apply switches to the newly generated round
+                current_matches = tournament['schedule'][next_round]['matches']
+                player_map = {p['name']: p for p in tournament['players']}
+                
+                for switch in player_switches:
+                    old_player_name = switch['oldPlayer']
+                    new_player_name = switch['newPlayer']
+                    
+                    if new_player_name not in player_map:
+                        continue
+                        
+                    new_player = player_map[new_player_name]
+                    
+                    # Find and replace the player in matches
+                    for match in current_matches:
+                        team_a, team_b = match
+                        
+                        # Check team A
+                        for i, player in enumerate(team_a):
+                            if player['name'] == old_player_name:
+                                team_a[i] = new_player
+                                break
+                        
+                        # Check team B
+                        for i, player in enumerate(team_b):
+                            if player['name'] == old_player_name:
+                                team_b[i] = new_player
+                                break
             
             # Update session
             session['tournament'] = tournament
