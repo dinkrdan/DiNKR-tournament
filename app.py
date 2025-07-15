@@ -359,47 +359,102 @@ def apply_player_switches():
         
         tournament = session.get('tournament', {})
         
-        # Apply all switches to the current round
+        if not tournament or 'schedule' not in tournament:
+            return jsonify({"error": "No tournament data found"}), 400
+        
+        if round_index >= len(tournament['schedule']):
+            return jsonify({"error": "Invalid round index"}), 400
+        
+        # Apply all switches to the specified round
         current_matches = tournament['schedule'][round_index]['matches']
         
         # Create a mapping of player names to player objects for quick lookup
-        player_map = {p['name']: p for p in tournament['players']}
+        player_map = {}
+        for player in tournament['players']:
+            # Handle both name formats
+            player_name = player.get('name') or f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
+            player_map[player_name] = player
+            # Also map by firstName if it exists
+            if player.get('firstName'):
+                player_map[player['firstName']] = player
+        
+        print(f"DEBUG: Available players in map: {list(player_map.keys())}")
+        print(f"DEBUG: Applying {len(switches)} switches: {switches}")
         
         # Apply each switch
         for switch in switches:
             old_player_name = switch['oldPlayer']
             new_player_name = switch['newPlayer']
             
+            print(f"DEBUG: Switching {old_player_name} -> {new_player_name}")
+            
             if new_player_name not in player_map:
+                print(f"ERROR: New player '{new_player_name}' not found in player map")
                 continue
                 
             new_player = player_map[new_player_name]
             
             # Find and replace the player in matches
-            for match in current_matches:
+            switch_applied = False
+            for match_idx, match in enumerate(current_matches):
                 team_a, team_b = match
                 
                 # Check team A
                 for i, player in enumerate(team_a):
-                    if player['name'] == old_player_name:
+                    current_name = player.get('name') or f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
+                    if current_name == old_player_name:
                         team_a[i] = new_player
+                        switch_applied = True
+                        print(f"DEBUG: Replaced {old_player_name} with {new_player_name} in Team A of match {match_idx}")
                         break
+                
+                if switch_applied:
+                    break
                 
                 # Check team B
                 for i, player in enumerate(team_b):
-                    if player['name'] == old_player_name:
+                    current_name = player.get('name') or f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
+                    if current_name == old_player_name:
                         team_b[i] = new_player
+                        switch_applied = True
+                        print(f"DEBUG: Replaced {old_player_name} with {new_player_name} in Team B of match {match_idx}")
                         break
+                
+                if switch_applied:
+                    break
+            
+            if not switch_applied:
+                print(f"WARNING: Could not find player {old_player_name} to replace")
+        
+        # Update sit-outs based on new assignments
+        all_playing = set()
+        for match in current_matches:
+            team_a, team_b = match
+            for player in team_a + team_b:
+                player_name = player.get('name') or f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
+                all_playing.add(player_name)
+        
+        all_players = set()
+        for player in tournament['players']:
+            player_name = player.get('name') or f"{player.get('firstName', '')} {player.get('lastName', '')}".strip()
+            all_players.add(player_name)
+        
+        sitting_out = list(all_players - all_playing)
+        tournament['schedule'][round_index]['sit_outs'] = sitting_out
+        
+        print(f"DEBUG: Updated sit-outs: {sitting_out}")
         
         # Update session
         session['tournament'] = tournament
         session.modified = True
         
-        return jsonify({"success": True})
+        return jsonify({"success": True, "applied_switches": len(switches)})
         
     except Exception as e:
         print(f"ERROR in apply_player_switches: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to apply switches: {str(e)}"}), 500
 
 @app.route('/api/update_score', methods=['POST'])
 def update_score():
