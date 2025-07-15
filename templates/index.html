@@ -77,6 +77,54 @@
             100% { transform: rotate(360deg); }
         }
         
+        /* Clickable player styles */
+        .clickable-player {
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .clickable-player:hover {
+            background-color: #4a6fa5 !important;
+            transform: scale(1.02);
+        }
+        .clickable-player.selected {
+            background-color: #deff01 !important;
+            color: #1a202c !important;
+        }
+        
+        /* Player replacement dropdown */
+        .player-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 2px solid #325682;
+            border-radius: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .player-option {
+            padding: 12px;
+            cursor: pointer;
+            border-bottom: 1px solid #e2e8f0;
+            color: #1a202c;
+            transition: background-color 0.2s;
+        }
+        
+        .player-option:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .player-option.unavailable {
+            background-color: #fee;
+            color: #999;
+            cursor: not-allowed;
+        }
+        
         /* DiNKR Logo Styling */
         .dinkr-logo {
             display: flex;
@@ -280,6 +328,256 @@
                                 cursor: 'pointer'
                             }
                         }, 'Confirm Score')
+                    ])
+                ])
+            ]);
+        };
+
+        // Player Switch Dialog Component
+        const PlayerSwitchDialog = ({ isOpen, onClose, tournament, currentRound, onSwitchesConfirmed }) => {
+            const [switches, setSwitches] = useState([]);
+
+            useEffect(() => {
+                if (isOpen) {
+                    setSwitches([]);
+                }
+            }, [isOpen]);
+
+            if (!isOpen || !tournament) return null;
+
+            const allPlayers = tournament.players;
+            const currentMatches = tournament.schedule[currentRound]?.matches || [];
+
+            const addSwitch = (oldPlayer, newPlayer) => {
+                setSwitches(prev => {
+                    // Remove any existing switch for the old player
+                    const filtered = prev.filter(s => s.oldPlayer !== oldPlayer);
+                    // Add the new switch
+                    return [...filtered, { oldPlayer, newPlayer }];
+                });
+            };
+
+            const removeSwitch = (oldPlayer) => {
+                setSwitches(prev => prev.filter(s => s.oldPlayer !== oldPlayer));
+            };
+
+            const handleConfirm = () => {
+                onSwitchesConfirmed(switches);
+                onClose();
+            };
+
+            const getPlayingPlayers = () => {
+                const playing = new Set();
+                currentMatches.forEach(match => {
+                    const [teamA, teamB] = match;
+                    teamA.forEach(p => playing.add(p.name));
+                    teamB.forEach(p => playing.add(p.name));
+                });
+                return playing;
+            };
+
+            const playingPlayers = getPlayingPlayers();
+
+            return h('div', { 
+                style: { 
+                    position: 'fixed', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    zIndex: 9999,
+                    padding: '20px'
+                } 
+            }, [
+                h('div', { 
+                    style: { 
+                        backgroundColor: 'white', 
+                        borderRadius: '16px', 
+                        padding: '32px', 
+                        maxWidth: '600px', 
+                        width: '100%',
+                        maxHeight: '80vh',
+                        overflowY: 'auto',
+                        color: '#1a202c',
+                        textAlign: 'center'
+                    } 
+                }, [
+                    h('h2', { 
+                        key: 'title',
+                        style: { fontSize: '24px', fontWeight: 'bold', marginBottom: '16px', color: '#325682' } 
+                    }, 'Manual Player Assignments'),
+                    
+                    h('p', { 
+                        key: 'description',
+                        style: { marginBottom: '24px', fontSize: '16px', color: '#64748b' } 
+                    }, 'Click on any player name in the matches below to replace them with a different player.'),
+                    
+                    // Show current matches with clickable players
+                    h('div', { 
+                        key: 'matches',
+                        style: { marginBottom: '24px' }
+                    }, currentMatches.map((match, matchIndex) => {
+                        const [teamA, teamB] = match;
+                        return h('div', {
+                            key: matchIndex,
+                            style: {
+                                border: '2px solid #325682',
+                                borderRadius: '8px',
+                                padding: '16px',
+                                marginBottom: '16px',
+                                backgroundColor: '#f8f9fa'
+                            }
+                        }, [
+                            h('h4', { 
+                                key: 'court-title',
+                                style: { marginBottom: '12px', color: '#325682' } 
+                            }, `Court ${matchIndex + 1}`),
+                            h('div', {
+                                key: 'teams',
+                                style: { display: 'flex', justifyContent: 'space-around', alignItems: 'center' }
+                            }, [
+                                h('div', { key: 'teamA', style: { textAlign: 'center' } }, [
+                                    h('div', { 
+                                        key: 'team-label',
+                                        style: { fontSize: '12px', color: '#64748b', marginBottom: '8px' } 
+                                    }, 'Team A'),
+                                    ...teamA.map((player, playerIndex) => 
+                                        h('div', {
+                                            key: `a-${playerIndex}`,
+                                            style: {
+                                                padding: '8px 12px',
+                                                margin: '4px',
+                                                backgroundColor: '#325682',
+                                                color: 'white',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontSize: '14px'
+                                            },
+                                            onClick: () => {
+                                                const newPlayer = prompt(`Replace ${player.name} with:`, '');
+                                                if (newPlayer && allPlayers.find(p => p.name === newPlayer)) {
+                                                    addSwitch(player.name, newPlayer);
+                                                }
+                                            }
+                                        }, player.name)
+                                    )
+                                ]),
+                                h('div', { 
+                                    key: 'vs',
+                                    style: { fontSize: '18px', fontWeight: 'bold', color: '#325682' } 
+                                }, 'VS'),
+                                h('div', { key: 'teamB', style: { textAlign: 'center' } }, [
+                                    h('div', { 
+                                        key: 'team-label',
+                                        style: { fontSize: '12px', color: '#64748b', marginBottom: '8px' } 
+                                    }, 'Team B'),
+                                    ...teamB.map((player, playerIndex) => 
+                                        h('div', {
+                                            key: `b-${playerIndex}`,
+                                            style: {
+                                                padding: '8px 12px',
+                                                margin: '4px',
+                                                backgroundColor: '#325682',
+                                                color: 'white',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontSize: '14px'
+                                            },
+                                            onClick: () => {
+                                                const newPlayer = prompt(`Replace ${player.name} with:`, '');
+                                                if (newPlayer && allPlayers.find(p => p.name === newPlayer)) {
+                                                    addSwitch(player.name, newPlayer);
+                                                }
+                                            }
+                                        }, player.name)
+                                    )
+                                ])
+                            ])
+                        ]);
+                    })),
+                    
+                    // Show pending switches
+                    switches.length > 0 ? h('div', {
+                        key: 'pending-switches',
+                        style: {
+                            backgroundColor: '#f0f9ff',
+                            border: '2px solid #325682',
+                            borderRadius: '8px',
+                            padding: '16px',
+                            marginBottom: '24px'
+                        }
+                    }, [
+                        h('h4', { 
+                            key: 'switches-title',
+                            style: { marginBottom: '12px', color: '#325682' } 
+                        }, 'Pending Switches:'),
+                        ...switches.map((switchItem, index) => 
+                            h('div', {
+                                key: index,
+                                style: {
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    padding: '8px',
+                                    backgroundColor: 'white',
+                                    borderRadius: '4px',
+                                    marginBottom: '8px'
+                                }
+                            }, [
+                                h('span', { key: 'switch-text' }, `${switchItem.oldPlayer} → ${switchItem.newPlayer}`),
+                                h('button', {
+                                    key: 'remove-switch',
+                                    onClick: () => removeSwitch(switchItem.oldPlayer),
+                                    style: {
+                                        background: '#dc2626',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        padding: '4px 8px',
+                                        cursor: 'pointer',
+                                        fontSize: '12px'
+                                    }
+                                }, '✕')
+                            ])
+                        )
+                    ]) : null,
+                    
+                    h('div', { 
+                        key: 'buttons',
+                        style: { display: 'flex', gap: '16px', justifyContent: 'center' }
+                    }, [
+                        h('button', {
+                            key: 'no-changes',
+                            onClick: () => { setSwitches([]); onClose(); },
+                            style: {
+                                backgroundColor: '#64748b',
+                                color: 'white',
+                                border: 'none',
+                                padding: '16px 24px',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }
+                        }, 'Use Auto Assignments'),
+                        h('button', {
+                            key: 'confirm',
+                            onClick: handleConfirm,
+                            style: {
+                                backgroundColor: '#deff01',
+                                color: '#1a202c',
+                                border: 'none',
+                                padding: '16px 24px',
+                                borderRadius: '8px',
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                cursor: 'pointer'
+                            }
+                        }, switches.length > 0 ? `Apply ${switches.length} Switch${switches.length !== 1 ? 'es' : ''}` : 'Confirm Assignments')
                     ])
                 ])
             ]);
@@ -651,8 +949,8 @@
             ]);
         };
 
-        // Beautiful Court Component with Score Validation
-        const Court = ({ match, matchIndex, roundIndex, courtNumber, scores, updateScore, onScoreValidation }) => {
+        // Enhanced Court Component with Clickable Players
+        const Court = ({ match, matchIndex, roundIndex, courtNumber, scores, updateScore, onScoreValidation, allowPlayerEditing = false, onPlayerClick }) => {
             const [teamA, teamB] = match;
             const matchScores = scores[roundIndex]?.[matchIndex] || { teamA: '', teamB: '' };
 
@@ -679,14 +977,48 @@
                 }
             };
 
+            const renderPlayer = (player, team, position) => {
+                const baseStyle = {
+                    backgroundColor: '#325682',
+                    color: 'white',
+                    textAlign: 'center',
+                    padding: '24px 16px',
+                    fontSize: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderBottom: position === 0 ? '2px solid white' : 'none'
+                };
+
+                const clickableStyle = allowPlayerEditing ? {
+                    ...baseStyle,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                } : baseStyle;
+
+                const hoverStyle = allowPlayerEditing ? {
+                    ':hover': {
+                        backgroundColor: '#4a6fa5',
+                        transform: 'scale(1.02)'
+                    }
+                } : {};
+
+                return h('div', {
+                    key: `player-${team}-${position}`,
+                    style: clickableStyle,
+                    onClick: allowPlayerEditing ? () => onPlayerClick(player) : undefined,
+                    className: allowPlayerEditing ? 'clickable-player' : ''
+                }, player.firstName || player.name);
+            };
+
             return h('div', { style: { margin: '0 auto 32px', maxWidth: '400px' } }, [
                 h('div', { key: 'top-post', style: { display: 'flex', justifyContent: 'center', marginBottom: '4px' } },
                     h('div', { style: { width: '8px', height: '16px', backgroundColor: '#000' } })
                 ),
                 h('div', { key: 'court', style: { backgroundColor: '#f7fafc', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)', display: 'grid', gridTemplateColumns: '2fr 1fr 4px 1fr 2fr', border: '5px solid white' } }, [
                     h('div', { key: 'left-team', style: { display: 'grid', gridTemplateRows: '1fr 1fr', borderRight: '2px solid white' } }, [
-                        h('div', { key: 'p1', style: { backgroundColor: '#325682', color: 'white', textAlign: 'center', padding: '24px 16px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid white' } }, teamA[0].firstName || teamA[0].name),
-                        h('div', { key: 'p2', style: { backgroundColor: '#325682', color: 'white', textAlign: 'center', padding: '24px 16px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, teamA[1].firstName || teamA[1].name)
+                        renderPlayer(teamA[0], 'A', 0),
+                        renderPlayer(teamA[1], 'A', 1)
                     ]),
                     h('div', { key: 'left-score', style: { backgroundColor: '#a0aec0', display: 'flex', alignItems: 'center', justifyContent: 'center' } },
                         h('input', {
@@ -724,8 +1056,8 @@
                         })
                     ),
                     h('div', { key: 'right-team', style: { display: 'grid', gridTemplateRows: '1fr 1fr', borderLeft: '2px solid white' } }, [
-                        h('div', { key: 'p3', style: { backgroundColor: '#325682', color: 'white', textAlign: 'center', padding: '24px 16px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '2px solid white' } }, teamB[0].firstName || teamB[0].name),
-                        h('div', { key: 'p4', style: { backgroundColor: '#325682', color: 'white', textAlign: 'center', padding: '24px 16px', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' } }, teamB[1].firstName || teamB[1].name)
+                        renderPlayer(teamB[0], 'B', 0),
+                        renderPlayer(teamB[1], 'B', 1)
                     ])
                 ]),
                 h('div', { key: 'bottom-post', style: { display: 'flex', justifyContent: 'center', marginTop: '4px' } },
@@ -763,6 +1095,7 @@
             const [errorMessage, setErrorMessage] = useState('');
             const [successMessage, setSuccessMessage] = useState('');
             const [showSkipDialog, setShowSkipDialog] = useState(false);
+            const [showSwitchDialog, setShowSwitchDialog] = useState(false);
             
             // Score validation state
             const [scoreValidation, setScoreValidation] = useState({
@@ -942,22 +1275,36 @@
                     if (maxSkips > 0) {
                         setShowSkipDialog(true);
                     } else {
-                        // No skips possible, advance directly
-                        advanceRound([]);
+                        // No skips possible, go directly to switch dialog
+                        setShowSwitchDialog(true);
                     }
                 } else {
                     setPhase('completed');
                 }
             };
 
-            const advanceRound = async (skipPlayers = []) => {
+            const handleSkipPlayersSelected = (skipPlayers) => {
+                // After skip dialog, show switch dialog
+                setShowSwitchDialog(true);
+                // Store skip players for later use
+                window.tempSkipPlayers = skipPlayers;
+            };
+
+            const handleSwitchesConfirmed = (switches) => {
+                const skipPlayers = window.tempSkipPlayers || [];
+                advanceRound(skipPlayers, switches);
+                window.tempSkipPlayers = null;
+            };
+
+            const advanceRound = async (skipPlayers = [], playerSwitches = []) => {
                 try {
                     setLoading(true);
                     const response = await fetch('/api/advance_round', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            skipPlayers
+                            skipPlayers,
+                            playerSwitches
                         })
                     });
 
@@ -980,11 +1327,14 @@
                         setTimerRunning(false);
                         setTimeRemaining(0);
                         
+                        let message = `Advanced to Round ${result.round + 1}`;
                         if (skipPlayers.length > 0) {
-                            showSuccess(`Advanced to Round ${result.round + 1} with ${skipPlayers.length} player(s) skipping`);
-                        } else {
-                            showSuccess(`Advanced to Round ${result.round + 1}`);
+                            message += ` with ${skipPlayers.length} player(s) skipping`;
                         }
+                        if (playerSwitches.length > 0) {
+                            message += ` and ${playerSwitches.length} manual assignment(s)`;
+                        }
+                        showSuccess(message);
                     } else {
                         showError(result.error || 'Failed to advance round');
                     }
@@ -1059,10 +1409,10 @@
                                 }, 'Number of Players'),
                                 h('input', { 
                                     type: 'number', 
-                                    min: config.courts * 4, 
-                                    max: 24, 
+                                    min: 4, 
+                                    max: 100, 
                                     value: config.totalPlayers, 
-                                    onChange: (e) => setConfig(prev => ({...prev, totalPlayers: Math.max(config.courts * 4, parseInt(e.target.value) || config.courts * 4)})),
+                                    onChange: (e) => setConfig(prev => ({...prev, totalPlayers: Math.max(4, parseInt(e.target.value) || 4)})),
                                     className: 'input', 
                                     style: { 
                                         width: '100%', 
@@ -1074,7 +1424,7 @@
                                 }),
                                 h('p', { 
                                     style: { fontSize: '14px', color: '#94a3b8', marginTop: '6px' } 
-                                }, `Minimum: ${config.courts * 4} (4 players per court)`)
+                                }, `Supports any number of players. ${config.courts * 4} will play each round.`)
                             ]),
                             h('div', { key: 'rounds' }, [
                                 h('label', { 
@@ -1127,11 +1477,11 @@
                     h('button', { 
                         key: 'next', 
                         onClick: () => setStep(2), 
-                        disabled: config.totalPlayers < config.courts * 4 || loading, 
+                        disabled: loading, 
                         className: 'btn', 
                         style: { 
                             width: '100%', 
-                            backgroundColor: config.totalPlayers >= config.courts * 4 ? '#deff01' : '#64748b', 
+                            backgroundColor: loading ? '#64748b' : '#deff01', 
                             color: '#1e293b', 
                             padding: '18px', 
                             fontSize: '18px',
@@ -1367,7 +1717,7 @@
                             }, formatTime(timeRemaining)) : null
                         ]),
                         
-                        // Beautiful Courts
+                        // Beautiful Courts with Manual Override
                         ...currentRoundData.matches.map((match, matchIndex) => 
                             h(Court, { 
                                 key: matchIndex, 
@@ -1377,7 +1727,12 @@
                                 courtNumber: matchIndex + 1,
                                 scores,
                                 updateScore,
-                                onScoreValidation: handleScoreValidation
+                                onScoreValidation: handleScoreValidation,
+                                allowPlayerEditing: false,  // Can be enabled for manual editing during round
+                                onPlayerClick: (player) => {
+                                    // Handle player click for manual override
+                                    console.log('Player clicked:', player);
+                                }
                             })
                         ),
                         
@@ -1385,11 +1740,6 @@
                         currentRoundData.sit_outs && currentRoundData.sit_outs.length > 0 ? h('div', { key: 'sitouts', style: { backgroundColor: 'rgba(107, 114, 128, 0.5)', padding: '16px', borderRadius: '8px', marginBottom: '24px', color: 'white' } }, [
                             h('strong', { style: { color: '#deff01' } }, 'Sitting Out: '), h('span', {}, currentRoundData.sit_outs.join(', '))
                         ]) : null,
-                        
-                        // Americano Tip
-                        h('div', { key: 'tip', style: { backgroundColor: 'rgba(222, 255, 1, 0.2)', border: '1px solid #deff01', borderRadius: '8px', padding: '16px', marginBottom: '24px', color: '#fef5e7' } },
-                            h('p', { style: { fontSize: '14px' } }, '💡 Americano Tip: Every point counts toward your individual total! Aim for the highest score possible, even if your team is losing.')
-                        ),
                         
                         // Round Controls
                         isCurrentRoundComplete ? h('button', { 
@@ -1433,25 +1783,7 @@
                                 fontSize: '18px', 
                                 textAlign: 'center' 
                             } 
-                        }, 'Enter all scores to continue'),
-                        
-                        // Debug info (remove in production)
-                        h('div', {
-                            key: 'debug',
-                            style: {
-                                marginTop: '20px',
-                                padding: '12px',
-                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                                borderRadius: '8px',
-                                fontSize: '12px',
-                                color: '#cbd5e0'
-                            }
-                        }, [
-                            h('div', {}, `Debug: Total players: ${tournament.players.length}`),
-                            h('div', {}, `Courts: ${config.courts} (needs ${config.courts * 4} players)`),
-                            h('div', {}, `Can skip: ${tournament.players.length - (config.courts * 4)} players`),
-                            h('div', {}, `Current round: ${currentRound + 1}/${tournament.schedule.length}`)
-                        ])
+                        }, 'Enter all scores to continue')
                     ]),
 
                     // Score Validation Dialog
@@ -1471,8 +1803,18 @@
                         onClose: () => setShowSkipDialog(false),
                         tournament,
                         currentRound,
-                        onSkipPlayersSelected: advanceRound,
+                        onSkipPlayersSelected: handleSkipPlayersSelected,
                         maxSkips: tournament ? Math.max(0, tournament.players.length - (config.courts * 4)) : 0
+                    }),
+
+                    // Player Switch Dialog
+                    h(PlayerSwitchDialog, {
+                        key: 'switch-dialog',
+                        isOpen: showSwitchDialog,
+                        onClose: () => setShowSwitchDialog(false),
+                        tournament,
+                        currentRound: currentRound + 1, // For the next round
+                        onSwitchesConfirmed: handleSwitchesConfirmed
                     })
                 ]);
             }
