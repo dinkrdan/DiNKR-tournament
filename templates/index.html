@@ -561,9 +561,31 @@
                                                 fontSize: '14px'
                                             },
                                             onClick: () => {
-                                                const newPlayer = prompt(`Replace ${player.name} with:`, '');
-                                                if (newPlayer && allPlayers.find(p => p.name === newPlayer)) {
-                                                    addSwitch(player.name, newPlayer);
+                                                // Show available players for replacement
+                                                const availablePlayerNames = allPlayers
+                                                    .map(p => p.name || `${p.firstName} ${p.lastName}`.trim())
+                                                    .filter(name => name !== player.name)
+                                                    .sort();
+                                                
+                                                const playerList = availablePlayerNames.join(', ');
+                                                const newPlayerName = prompt(
+                                                    `Replace ${player.name} with:\n\nAvailable players: ${playerList}`, 
+                                                    ''
+                                                );
+                                                
+                                                if (newPlayerName) {
+                                                    // Find player with flexible matching
+                                                    const foundPlayer = allPlayers.find(p => {
+                                                        const pName = p.name || `${p.firstName} ${p.lastName}`.trim();
+                                                        return pName.toLowerCase() === newPlayerName.toLowerCase();
+                                                    });
+                                                    
+                                                    if (foundPlayer) {
+                                                        const foundPlayerName = foundPlayer.name || `${foundPlayer.firstName} ${foundPlayer.lastName}`.trim();
+                                                        addSwitch(player.name, foundPlayerName);
+                                                    } else {
+                                                        alert(`Player "${newPlayerName}" not found. Please check spelling and try again.`);
+                                                    }
                                                 }
                                             }
                                         }, player.name)
@@ -591,9 +613,31 @@
                                                 fontSize: '14px'
                                             },
                                             onClick: () => {
-                                                const newPlayer = prompt(`Replace ${player.name} with:`, '');
-                                                if (newPlayer && allPlayers.find(p => p.name === newPlayer)) {
-                                                    addSwitch(player.name, newPlayer);
+                                                // Show available players for replacement
+                                                const availablePlayerNames = allPlayers
+                                                    .map(p => p.name || `${p.firstName} ${p.lastName}`.trim())
+                                                    .filter(name => name !== player.name)
+                                                    .sort();
+                                                
+                                                const playerList = availablePlayerNames.join(', ');
+                                                const newPlayerName = prompt(
+                                                    `Replace ${player.name} with:\n\nAvailable players: ${playerList}`, 
+                                                    ''
+                                                );
+                                                
+                                                if (newPlayerName) {
+                                                    // Find player with flexible matching
+                                                    const foundPlayer = allPlayers.find(p => {
+                                                        const pName = p.name || `${p.firstName} ${p.lastName}`.trim();
+                                                        return pName.toLowerCase() === newPlayerName.toLowerCase();
+                                                    });
+                                                    
+                                                    if (foundPlayer) {
+                                                        const foundPlayerName = foundPlayer.name || `${foundPlayer.firstName} ${foundPlayer.lastName}`.trim();
+                                                        addSwitch(player.name, foundPlayerName);
+                                                    } else {
+                                                        alert(`Player "${newPlayerName}" not found. Please check spelling and try again.`);
+                                                    }
                                                 }
                                             }
                                         }, player.name)
